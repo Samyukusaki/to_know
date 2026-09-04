@@ -32,28 +32,55 @@ const ADMIN_PASSCODE_KEY = 'to_know_admin_passcode_v1';
 const ADMIN_AUTH_KEY = 'to_know_admin_auth_v1';
 const DEFAULT_ADMIN_PASSCODE = '123456';
 
+const safeStorage = {
+  get: (key: string): string | null => {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  set: (key: string, val: string): void => {
+    try {
+      localStorage.setItem(key, val);
+    } catch {}
+  },
+  getSession: (key: string): string | null => {
+    try {
+      return sessionStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  setSession: (key: string, val: string): void => {
+    try {
+      sessionStorage.setItem(key, val);
+    } catch {}
+  },
+};
+
 export default function App() {
   // Load saved language
   const [lang, setLang] = useState<'km' | 'en'>(() => {
-    const saved = localStorage.getItem(LANG_STORAGE_KEY);
+    const saved = safeStorage.get(LANG_STORAGE_KEY);
     return saved === 'en' ? 'en' : 'km';
   });
 
   // Admin secret passcode
   const [adminPasscode, setAdminPasscode] = useState<string>(() => {
-    return localStorage.getItem(ADMIN_PASSCODE_KEY) || DEFAULT_ADMIN_PASSCODE;
+    return safeStorage.get(ADMIN_PASSCODE_KEY) || DEFAULT_ADMIN_PASSCODE;
   });
 
   // Session authentication state (persists per browser session or until locked)
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
-    return sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true';
+    return safeStorage.getSession(ADMIN_AUTH_KEY) === 'true';
   });
 
   // Admin Mode state (defaults to false if not authenticated)
   const [isAdminMode, setIsAdminMode] = useState<boolean>(() => {
-    const isAuth = sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true';
+    const isAuth = safeStorage.getSession(ADMIN_AUTH_KEY) === 'true';
     if (!isAuth) return false;
-    const saved = localStorage.getItem(ADMIN_STORAGE_KEY);
+    const saved = safeStorage.get(ADMIN_STORAGE_KEY);
     return saved !== null ? saved === 'true' : true;
   });
 
@@ -69,7 +96,7 @@ export default function App() {
 
   useEffect(() => {
     if (isAdminAuthenticated) {
-      localStorage.setItem(ADMIN_STORAGE_KEY, String(isAdminMode));
+      safeStorage.set(ADMIN_STORAGE_KEY, String(isAdminMode));
     }
   }, [isAdminMode, isAdminAuthenticated]);
 
@@ -84,7 +111,7 @@ export default function App() {
   // Load videos from localStorage or initial dataset
   const [videos, setVideos] = useState<VideoItem[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = safeStorage.get(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -99,10 +126,15 @@ export default function App() {
 
   // Auth observer
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
+    try {
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
+      });
+      return () => unsubscribe();
+    } catch (err) {
+      console.warn('Auth observer setup notice:', err);
+      return () => {};
+    }
   }, []);
 
   // Real-time Cloud Firestore subscription

@@ -94,25 +94,27 @@ export function subscribeToVideos(
   onSuccess: (videos: VideoItem[]) => void,
   onError?: (err: unknown) => void
 ): Unsubscribe {
-  const colRef = collection(db, VIDEOS_COLLECTION);
-  return onSnapshot(
-    colRef,
-    (snapshot) => {
-      const items: VideoItem[] = [];
-      snapshot.forEach((docSnap) => {
-        items.push(docSnap.data() as VideoItem);
-      });
-      onSuccess(items);
-    },
-    (error) => {
-      onError?.(error);
-      try {
-        handleFirestoreError(error, OperationType.GET, VIDEOS_COLLECTION);
-      } catch (err) {
-        console.warn('Firestore subscription fallback to local cache:', err);
+  try {
+    const colRef = collection(db, VIDEOS_COLLECTION);
+    return onSnapshot(
+      colRef,
+      (snapshot) => {
+        const items: VideoItem[] = [];
+        snapshot.forEach((docSnap) => {
+          items.push(docSnap.data() as VideoItem);
+        });
+        onSuccess(items);
+      },
+      (error) => {
+        onError?.(error);
+        console.warn('Firestore subscription fallback to local cache:', error);
       }
-    }
-  );
+    );
+  } catch (error) {
+    onError?.(error);
+    console.warn('Firestore collection access failed, fallback to local storage:', error);
+    return () => {};
+  }
 }
 
 /**
