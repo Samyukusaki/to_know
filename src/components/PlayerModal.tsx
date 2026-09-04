@@ -52,15 +52,42 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
   const isDirect = Boolean(video && (video.platform === 'direct' || video.url.endsWith('.mp4') || video.url.endsWith('.webm')));
   const isFacebook = Boolean(video && (video.platform === 'facebook' || video.url.includes('facebook.com') || video.url.includes('fb.watch')));
 
-  // For Facebook and YouTube, default to the official platform player so the actual user video plays
+  // Extracted stream state (either already on video object, or dynamically resolved)
+  const [dynamicStreamUrl, setDynamicStreamUrl] = useState<string | null>(null);
+
+  // If a direct stream is available, default to in-app player for instant native playback!
+  const hasDirectStream = Boolean(video?.previewVideoUrl || dynamicStreamUrl || isDirect);
   const [playerMode, setPlayerMode] = useState<'in-app' | 'embed'>(() => {
-    return isDirect ? 'in-app' : 'embed';
+    return hasDirectStream ? 'in-app' : 'embed';
   });
 
   useEffect(() => {
-    setPlayerMode(isDirect ? 'in-app' : 'embed');
+    setDynamicStreamUrl(null);
     setIframeError(false);
-  }, [video?.id, isDirect]);
+
+    if (video?.previewVideoUrl || isDirect) {
+      setPlayerMode('in-app');
+    } else {
+      setPlayerMode('embed');
+    }
+
+    // If Facebook video without previewVideoUrl, attempt on-the-fly extraction
+    if (video && isFacebook && !video.previewVideoUrl) {
+      fetch('/api/extract-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: video.url }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.directVideoUrl) {
+            setDynamicStreamUrl(data.directVideoUrl);
+            setPlayerMode('in-app');
+          }
+        })
+        .catch((err) => console.warn('Background stream extract error:', err));
+    }
+  }, [video?.id, video?.previewVideoUrl, isDirect, isFacebook, video?.url]);
 
   if (!video) return null;
 
@@ -74,6 +101,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
 
   // Determine playable direct video source
   const directVideoSource =
+    dynamicStreamUrl ||
     video.previewVideoUrl ||
     (isDirect ? video.url : getFallbackVideoForCategory(video.category));
 
@@ -81,7 +109,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
   const ytId = getYouTubeId(video.url);
   const effectiveEmbedUrl = isYouTube
     ? (video.embedUrl || (ytId ? `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0` : ''))
-    : getFacebookEmbedUrl(video.url, true);
+    : (video.embedUrl || getFacebookEmbedUrl(video.url, true));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-xl overflow-y-auto">
@@ -234,6 +262,10 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
                 playsInline
                 loop
                 className="w-full h-full object-contain"
+                onError={() => {
+                  console.warn('In-app video source error, falling back to embed');
+                  setPlayerMode('embed');
+                }}
               >
                 Your browser does not support the video tag.
               </video>

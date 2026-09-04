@@ -93,6 +93,8 @@ export const VideoModal: React.FC<VideoModalProps> = ({
   // Helper State
   const [detectedPlatform, setDetectedPlatform] = useState<VideoPlatform>('facebook');
   const [isAutoDetecting, setIsAutoDetecting] = useState(false);
+  const [isExtractingVideo, setIsExtractingVideo] = useState(false);
+  const [extractStatusText, setExtractStatusText] = useState<string | null>(null);
   const [imageUploadName, setImageUploadName] = useState('');
   const [previewVideoUrl, setPreviewVideoUrl] = useState('');
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
@@ -159,31 +161,108 @@ export const VideoModal: React.FC<VideoModalProps> = ({
     }
   }, [editVideo, isOpen, defaultTab]);
 
+  // Video Extraction from Backend API
+  const extractVideoFromUrl = async (targetUrl: string) => {
+    const trimmed = targetUrl.trim();
+    if (!trimmed) return;
+
+    setIsExtractingVideo(true);
+    setExtractStatusText(
+      lang === 'km'
+        ? 'កំពុងទាញយកវីដេអូពី Facebook មកចាក់លើកម្មវិធី...'
+        : 'Fetching and extracting Facebook video stream...',
+    );
+
+    try {
+      const res = await fetch('/api/extract-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: trimmed }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}`);
+      }
+
+      const data = await res.json();
+      if (data.success) {
+        if (data.canonicalUrl) {
+          setUrl(data.canonicalUrl);
+        }
+        if (data.title) {
+          setTitle(data.title);
+        }
+        if (data.description) {
+          setDescription(data.description);
+        }
+        if (data.thumbnail) {
+          setThumbnail(data.thumbnail);
+        }
+        if (data.directVideoUrl) {
+          setPreviewVideoUrl(data.directVideoUrl);
+          setIsPlayingPreview(true); // Auto-open preview to test play
+        }
+        if (data.isReel) {
+          setCategory('គន្លឹះខ្លីៗ');
+        } else if (data.title) {
+          setCategory(suggestCategoryFromKeywords(data.title));
+        }
+        if (data.platform) {
+          setDetectedPlatform(data.platform);
+        }
+
+        setExtractStatusText(
+          data.directVideoUrl
+            ? (lang === 'km'
+                ? '✅ បានទាញយកវីដេអូ MP4 ជោគជ័យ! អាចចាក់លេងលើកម្មវិធីបានភ្លាមៗ'
+                : '✅ Video stream extracted! Playable directly in app.')
+            : (lang === 'km'
+                ? '✅ បានទាញយកតំណភ្ជាប់ Facebook ជោគជ័យ! អាចចាក់លេងលើកម្មវិធីបាន'
+                : '✅ Facebook video link extracted and ready to play.'),
+        );
+      }
+    } catch (err: any) {
+      console.warn('Backend extract error:', err);
+      // Fallback to local parsing
+      const plat = detectPlatform(trimmed);
+      setDetectedPlatform(plat);
+      if (plat === 'facebook') {
+        const fbInfo = extractFacebookVideoInfo(trimmed);
+        if (fbInfo.isReel) setCategory('គន្លឹះខ្លីៗ');
+        if (!title) {
+          setTitle(fbInfo.isReel ? 'វីដេអូខ្លីចំណេះដឹង (Reels) - នាំដឹង' : 'វីដេអូចំណេះដឹងពីទំព័រហ្វេសប៊ុក នាំដឹង - To Know');
+        }
+        setExtractStatusText(lang === 'km' ? '✅ បានរៀបចំតំណភ្ជាប់ Facebook រួចរាល់' : '✅ Facebook link prepared');
+      } else if (plat === 'youtube') {
+        const ytThumb = getYouTubeThumbnail(trimmed);
+        if (ytThumb) setThumbnail(ytThumb);
+        setExtractStatusText(lang === 'km' ? '✅ បានរកឃើញវីដេអូ YouTube' : '✅ YouTube video detected');
+      }
+    } finally {
+      setIsExtractingVideo(false);
+    }
+  };
+
   // URL auto detector
   const handleUrlChange = (newUrl: string) => {
     setUrl(newUrl);
     setIsPlayingPreview(false);
-    if (!newUrl.trim()) return;
+    if (!newUrl.trim()) {
+      setExtractStatusText(null);
+      return;
+    }
 
     const plat = detectPlatform(newUrl);
     setDetectedPlatform(plat);
 
-    if (plat === 'facebook') {
-      const fbInfo = extractFacebookVideoInfo(newUrl);
-      if (fbInfo.isReel) {
-        setCategory('គន្លឹះខ្លីៗ');
-      }
-      if (!title) {
-        setTitle(fbInfo.isReel ? 'វីដេអូខ្លីចំណេះដឹង (Reels) - នាំដឹង' : 'វីដេអូចំណេះដឹងពីទំព័រហ្វេសប៊ុក នាំដឹង - To Know');
-      }
-      if (!description) {
-        setDescription('ខ្លឹមសារវីដេអូចំណេះដឹងទូទៅ និងបច្ចេកវិទ្យាពីទំព័រហ្វេសប៊ុកផ្លូវការ "នាំដឹង - To Know"។');
-      }
-    } else if (plat === 'youtube') {
-      const ytThumb = getYouTubeThumbnail(newUrl);
-      if (ytThumb && (!thumbnail || thumbnail === THUMBNAIL_PRESETS[0].url)) {
-        setThumbnail(ytThumb);
-      }
+    // Auto-extract if it's a full Facebook, YouTube, or direct link
+    if (
+      newUrl.includes('facebook.com') ||
+      newUrl.includes('fb.watch') ||
+      newUrl.includes('youtu') ||
+      newUrl.endsWith('.mp4')
+    ) {
+      extractVideoFromUrl(newUrl);
     }
   };
 
@@ -196,41 +275,10 @@ export const VideoModal: React.FC<VideoModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Link auto-fill handler
+  // Link auto-fill handler (Trigger manual re-extraction)
   const handleAutoFillFromUrl = () => {
     if (!url.trim()) return;
-    setIsAutoDetecting(true);
-
-    setTimeout(() => {
-      const plat = detectPlatform(url);
-      setDetectedPlatform(plat);
-
-      if (plat === 'youtube') {
-        const ytThumb = getYouTubeThumbnail(url);
-        if (ytThumb) setThumbnail(ytThumb);
-        if (!title) {
-          setTitle('វីដេអូចំណេះដឹងវិទ្យាសាស្ត្រ និងបច្ចេកវិទ្យាថ្មី');
-        }
-        if (!description) {
-          setDescription('វីដេអូចំណេះដឹងលើកកម្ពស់ការយល់ដឹងពីបច្ចេកវិទ្យា និងពិភពលោក។');
-        }
-      } else if (plat === 'facebook') {
-        if (!title) {
-          setTitle('វីដេអូចំណេះដឹងពីទំព័រហ្វេសប៊ុក នាំដឹង - To Know');
-        }
-        if (!description) {
-          setDescription('ខ្លឹមសារវីដេអូចំណេះដឹងទូទៅ និងបច្ចេកវិទ្យាពីទំព័រហ្វេសប៊ុកផ្លូវការ "នាំដឹង - To Know"។');
-        }
-        setThumbnail(THUMBNAIL_PRESETS[0].url);
-      }
-
-      // Suggest category based on title
-      if (title) {
-        setCategory(suggestCategoryFromKeywords(title));
-      }
-
-      setIsAutoDetecting(false);
-    }, 300);
+    extractVideoFromUrl(url);
   };
 
   // Image Upload handler (supports mobile camera or gallery)
@@ -415,16 +463,36 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                   </button>
                 </div>
 
-                <div className="relative">
+                <div className="relative flex items-center gap-2">
                   <input
                     id="video-link-input"
                     type="url"
                     required
                     value={url}
                     onChange={(e) => handleUrlChange(e.target.value)}
+                    onPaste={(e) => {
+                      const pasted = e.clipboardData.getData('text');
+                      if (pasted) {
+                        setTimeout(() => handleUrlChange(pasted), 20);
+                      }
+                    }}
                     placeholder="https://www.facebook.com/share/... ឬ https://youtube.com/watch?v=..."
-                    className="w-full px-3.5 py-3 bg-slate-950/80 border border-white/15 rounded-xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 text-white placeholder-slate-500 text-sm transition-all"
+                    className="flex-1 px-3.5 py-3 bg-slate-950/80 border border-white/15 rounded-xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 text-white placeholder-slate-500 text-sm transition-all"
                   />
+                  <button
+                    type="button"
+                    onClick={() => extractVideoFromUrl(url)}
+                    disabled={!url.trim() || isExtractingVideo}
+                    className="px-3.5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 shadow-md cursor-pointer"
+                    title={lang === 'km' ? 'ចុចដើម្បីទាញយកវីដេអូពី Facebook' : 'Extract video'}
+                  >
+                    {isExtractingVideo ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )}
+                    <span>{lang === 'km' ? 'ទាញយកវីដេអូ' : 'Extract'}</span>
+                  </button>
                 </div>
 
                 {/* Quick Link Helper Presets */}
@@ -452,12 +520,31 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                 <div className="bg-slate-950/80 rounded-2xl border border-indigo-400/30 p-3.5 space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-xs font-bold text-emerald-300">
-                        {detectedPlatform === 'facebook'
-                          ? (lang === 'km' ? '✅ បានទាញយកតំណភ្ជាប់វីដេអូ Facebook រួចរាល់' : 'Facebook video link extracted')
-                          : (lang === 'km' ? '✅ បានរកឃើញតំណភ្ជាប់វីដេអូ' : 'Video link detected')}
-                      </span>
+                      {isExtractingVideo ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                          <span className="text-xs font-bold text-amber-300 animate-pulse">
+                            {extractStatusText ||
+                              (lang === 'km'
+                                ? 'កំពុងទាញយកវីដេអូពី Facebook...'
+                                : 'Extracting Facebook video...')}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="text-xs font-bold text-emerald-300">
+                            {extractStatusText ||
+                              (detectedPlatform === 'facebook'
+                                ? (lang === 'km'
+                                    ? '✅ បានទាញយកវីដេអូ Facebook រួចរាល់'
+                                    : 'Facebook video extracted')
+                                : (lang === 'km'
+                                    ? '✅ បានរកឃើញតំណភ្ជាប់វីដេអូ'
+                                    : 'Video link detected'))}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <button
@@ -477,7 +564,15 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                   {/* Live Player Container */}
                   {isPlayingPreview ? (
                     <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/15 shadow-inner">
-                      {detectedPlatform === 'facebook' ? (
+                      {previewVideoUrl ? (
+                        <video
+                          src={previewVideoUrl}
+                          controls
+                          autoPlay
+                          playsInline
+                          className="w-full h-full object-contain"
+                        />
+                      ) : detectedPlatform === 'facebook' ? (
                         <iframe
                           src={getFacebookEmbedUrl(cleanFacebookUrl(url), true)}
                           title="Facebook Test Play"
@@ -496,7 +591,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                         />
                       ) : (
                         <video
-                          src={previewVideoUrl || url}
+                          src={url}
                           controls
                           autoPlay
                           className="w-full h-full object-contain"
@@ -660,14 +755,36 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                     {lang === 'km' ? 'ប្រើ Link នាំដឹង' : 'Use Official Link'}
                   </button>
                 </label>
-                <input
-                  type="url"
-                  required
-                  value={url}
-                  onChange={(e) => handleUrlChange(e.target.value)}
-                  placeholder="https://www.facebook.com/... ឬ direct .mp4 link"
-                  className="w-full px-3.5 py-2.5 bg-white/5 border border-white/15 rounded-xl focus:ring-2 focus:ring-indigo-500/50 text-white placeholder-slate-500 text-xs sm:text-sm font-mono"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="url"
+                    required
+                    value={url}
+                    onChange={(e) => handleUrlChange(e.target.value)}
+                    onPaste={(e) => {
+                      const pasted = e.clipboardData.getData('text');
+                      if (pasted) {
+                        setTimeout(() => handleUrlChange(pasted), 20);
+                      }
+                    }}
+                    placeholder="https://www.facebook.com/... ឬ direct .mp4 link"
+                    className="flex-1 px-3.5 py-2.5 bg-white/5 border border-white/15 rounded-xl focus:ring-2 focus:ring-indigo-500/50 text-white placeholder-slate-500 text-xs sm:text-sm font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => extractVideoFromUrl(url)}
+                    disabled={!url.trim() || isExtractingVideo}
+                    className="px-3 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 shadow-md cursor-pointer"
+                    title={lang === 'km' ? 'ទាញយកវីដេអូពី Facebook' : 'Extract video'}
+                  >
+                    {isExtractingVideo ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5" />
+                    )}
+                    <span>{lang === 'km' ? 'ទាញយក' : 'Extract'}</span>
+                  </button>
+                </div>
               </div>
 
               {/* Optional Direct MP4 / Video Upload */}
