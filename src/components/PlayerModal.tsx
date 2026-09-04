@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   ExternalLink,
@@ -16,9 +16,17 @@ import {
   Globe,
   Film,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react';
 import { VideoItem } from '../types/video';
-import { formatCompactNumber, toKhmerNumerals, getFallbackVideoForCategory, getYouTubeId } from '../utils/videoHelper';
+import {
+  formatCompactNumber,
+  toKhmerNumerals,
+  getFallbackVideoForCategory,
+  getYouTubeId,
+  getFacebookEmbedUrl,
+  cleanFacebookUrl,
+} from '../utils/videoHelper';
 import { OFFICIAL_PAGE_INFO } from '../data/initialVideos';
 
 interface PlayerModalProps {
@@ -39,10 +47,20 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [iframeError, setIframeError] = useState(false);
 
-  // If YouTube, default to embed; otherwise default to in-app player for instant playable video
+  // Video type detection
   const isYouTube = Boolean(video && (video.platform === 'youtube' || video.url.includes('youtu')));
   const isDirect = Boolean(video && (video.platform === 'direct' || video.url.endsWith('.mp4') || video.url.endsWith('.webm')));
-  const [playerMode, setPlayerMode] = useState<'in-app' | 'embed'>('in-app');
+  const isFacebook = Boolean(video && (video.platform === 'facebook' || video.url.includes('facebook.com') || video.url.includes('fb.watch')));
+
+  // For Facebook and YouTube, default to the official platform player so the actual user video plays
+  const [playerMode, setPlayerMode] = useState<'in-app' | 'embed'>(() => {
+    return isDirect ? 'in-app' : 'embed';
+  });
+
+  useEffect(() => {
+    setPlayerMode(isDirect ? 'in-app' : 'embed');
+    setIframeError(false);
+  }, [video?.id, isDirect]);
 
   if (!video) return null;
 
@@ -63,7 +81,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
   const ytId = getYouTubeId(video.url);
   const effectiveEmbedUrl = isYouTube
     ? (video.embedUrl || (ytId ? `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0` : ''))
-    : `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(video.url)}&show_text=false&t=0&autoplay=true`;
+    : getFacebookEmbedUrl(video.url, true);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-xl overflow-y-auto">
@@ -88,30 +106,33 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
             <div className="flex items-center bg-slate-950/80 p-0.5 rounded-xl border border-white/10 text-[11px]">
               <button
                 type="button"
-                onClick={() => setPlayerMode('in-app')}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition-all ${
-                  playerMode === 'in-app'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-                title={lang === 'km' ? 'ចាក់វីដេអូផ្ទាល់ក្នុងកម្មវិធី' : 'Play video directly in app'}
-              >
-                <Film className="w-3.5 h-3.5" />
-                <span>{lang === 'km' ? 'ចាក់ក្នុង App' : 'In-App'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPlayerMode('embed')}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition-all ${
+                onClick={() => {
+                  setPlayerMode('embed');
+                  setIframeError(false);
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
                   playerMode === 'embed'
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-white'
                 }`}
-                title={lang === 'km' ? 'ទស្សនាតាមផ្ទាំង Embed ផ្លូវការ' : 'Official Embed Player'}
+                title={lang === 'km' ? 'ចាក់វីដេអូពីប្រភពដើម (Facebook / YouTube)' : 'Play original video (Facebook / YouTube)'}
               >
                 <Globe className="w-3.5 h-3.5" />
-                <span>{isYouTube ? 'YouTube' : 'Facebook'}</span>
+                <span>{isYouTube ? 'YouTube' : 'Facebook Video'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPlayerMode('in-app')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                  playerMode === 'in-app'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title={lang === 'km' ? 'ចាក់វីដេអូទម្រង់ In-App Player (HD Stream)' : 'Play in In-App Player'}
+              >
+                <Film className="w-3.5 h-3.5" />
+                <span>{lang === 'km' ? 'ចាក់ក្នុង App' : 'In-App'}</span>
               </button>
             </div>
 
@@ -143,7 +164,65 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
 
         {/* Video Player Container */}
         <div className="relative aspect-video w-full bg-black flex items-center justify-center overflow-hidden shrink-0">
-          {/* 1. In-App Video Player (Plays directly with native controls) */}
+          {/* 1. Official Embed Player (Facebook Video or YouTube) */}
+          {playerMode === 'embed' && (
+            <div className="relative w-full h-full bg-black flex items-center justify-center">
+              {!iframeError ? (
+                <>
+                  <iframe
+                    key={`embed-${video.id}`}
+                    src={effectiveEmbedUrl}
+                    title={video.title}
+                    className="w-full h-full border-0"
+                    scrolling="no"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    onError={() => setIframeError(true)}
+                  />
+                  {isFacebook && (
+                    <div className="absolute top-3 left-3 pointer-events-none opacity-75 hover:opacity-100 transition-opacity">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold bg-blue-950/85 text-blue-200 border border-blue-400/30 backdrop-blur-md shadow-md">
+                        <Globe className="w-3 h-3 text-blue-400" />
+                        <span>Facebook Video Player</span>
+                      </span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="p-6 text-center text-white space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center mx-auto border border-amber-400/30">
+                    <AlertCircle className="w-6 h-6" />
+                  </div>
+                  <p className="text-sm text-slate-300 max-w-md mx-auto">
+                    {lang === 'km'
+                      ? 'ផ្ទាំងចាក់ Facebook អាចត្រូវបានរារាំងដោយសារភាពឯកជន ឬ Cookie។ អ្នកអាចប្តូរទៅចាក់តាម In-App Player ឬបើកមើលលើ Facebook ដោយផ្ទាល់។'
+                      : 'Facebook video player could not be embedded directly due to privacy settings.'}
+                  </p>
+                  <div className="flex items-center justify-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setPlayerMode('in-app')}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md transition-all"
+                    >
+                      <Film className="w-4 h-4" />
+                      <span>{lang === 'km' ? 'ចាក់តាម In-App Player' : 'Play In-App HD'}</span>
+                    </button>
+                    <a
+                      href={cleanFacebookUrl(video.url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 transition-all"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span>{lang === 'km' ? 'បើកលើ Facebook ផ្ទាល់' : 'Open on Facebook'}</span>
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 2. In-App Video Player (Plays directly with native controls) */}
           {playerMode === 'in-app' && (
             <div className="relative w-full h-full bg-black flex items-center justify-center">
               <video
@@ -164,38 +243,6 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
                   <span>HD 1080p • In-App Player</span>
                 </span>
               </div>
-            </div>
-          )}
-
-          {/* 2. Official Embed Player (YouTube or Facebook Plugin) */}
-          {playerMode === 'embed' && (
-            <div className="relative w-full h-full bg-black flex items-center justify-center">
-              {!iframeError ? (
-                <iframe
-                  key={`embed-${video.id}`}
-                  src={effectiveEmbedUrl}
-                  title={video.title}
-                  className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  onError={() => setIframeError(true)}
-                />
-              ) : (
-                <div className="p-6 text-center text-white space-y-3">
-                  <p className="text-sm text-slate-300">
-                    {lang === 'km'
-                      ? 'ផ្ទាំង Embed មិនអាចបង្ហាញបាន។ សូមប្តូរទៅ "ចាក់ក្នុង App" ឬបើកលើ Facebook ដោយផ្ទាល់។'
-                      : 'Embed player unavailable. Please switch to In-App mode or open source directly.'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setPlayerMode('in-app')}
-                    className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-md"
-                  >
-                    {lang === 'km' ? 'ចាក់ក្នុង App វិញ' : 'Switch to In-App Player'}
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>

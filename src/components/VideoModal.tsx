@@ -25,6 +25,9 @@ import {
   getEmbedUrl,
   getYouTubeThumbnail,
   suggestCategoryFromKeywords,
+  cleanFacebookUrl,
+  getFacebookEmbedUrl,
+  extractFacebookVideoInfo,
 } from '../utils/videoHelper';
 import { OFFICIAL_PAGE_INFO } from '../data/initialVideos';
 
@@ -91,7 +94,11 @@ export const VideoModal: React.FC<VideoModalProps> = ({
   const [detectedPlatform, setDetectedPlatform] = useState<VideoPlatform>('facebook');
   const [isAutoDetecting, setIsAutoDetecting] = useState(false);
   const [imageUploadName, setImageUploadName] = useState('');
+  const [previewVideoUrl, setPreviewVideoUrl] = useState('');
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const [videoUploadName, setVideoUploadName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
 
   // Set default tab and values on open or edit
   useEffect(() => {
@@ -99,6 +106,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
       setTitle(editVideo.title);
       setTitleEn(editVideo.titleEn || '');
       setUrl(editVideo.url);
+      setPreviewVideoUrl(editVideo.previewVideoUrl || '');
       setCategory(editVideo.category);
       setStatus(editVideo.status);
       setDescription(editVideo.description);
@@ -119,12 +127,16 @@ export const VideoModal: React.FC<VideoModalProps> = ({
         },
       );
       setDetectedPlatform(editVideo.platform);
+      setIsPlayingPreview(false);
       setActiveTab('manual'); // When editing, default to manual view for full control
     } else {
       // Reset for new creation
       setTitle('');
       setTitleEn('');
       setUrl('');
+      setPreviewVideoUrl('');
+      setIsPlayingPreview(false);
+      setVideoUploadName('');
       setCategory('បច្ចេកវិទ្យា');
       setStatus('published');
       setDescription('');
@@ -148,18 +160,37 @@ export const VideoModal: React.FC<VideoModalProps> = ({
   }, [editVideo, isOpen, defaultTab]);
 
   // URL auto detector
+  const handleUrlChange = (newUrl: string) => {
+    setUrl(newUrl);
+    setIsPlayingPreview(false);
+    if (!newUrl.trim()) return;
+
+    const plat = detectPlatform(newUrl);
+    setDetectedPlatform(plat);
+
+    if (plat === 'facebook') {
+      const fbInfo = extractFacebookVideoInfo(newUrl);
+      if (fbInfo.isReel) {
+        setCategory('គន្លឹះខ្លីៗ');
+      }
+      if (!title) {
+        setTitle(fbInfo.isReel ? 'វីដេអូខ្លីចំណេះដឹង (Reels) - នាំដឹង' : 'វីដេអូចំណេះដឹងពីទំព័រហ្វេសប៊ុក នាំដឹង - To Know');
+      }
+      if (!description) {
+        setDescription('ខ្លឹមសារវីដេអូចំណេះដឹងទូទៅ និងបច្ចេកវិទ្យាពីទំព័រហ្វេសប៊ុកផ្លូវការ "នាំដឹង - To Know"។');
+      }
+    } else if (plat === 'youtube') {
+      const ytThumb = getYouTubeThumbnail(newUrl);
+      if (ytThumb && (!thumbnail || thumbnail === THUMBNAIL_PRESETS[0].url)) {
+        setThumbnail(ytThumb);
+      }
+    }
+  };
+
   useEffect(() => {
     if (url.trim()) {
       const plat = detectPlatform(url);
       setDetectedPlatform(plat);
-
-      // If YouTube and no thumbnail yet, automatically fetch YouTube thumbnail
-      if (plat === 'youtube') {
-        const ytThumb = getYouTubeThumbnail(url);
-        if (ytThumb && (!thumbnail || thumbnail === THUMBNAIL_PRESETS[0].url)) {
-          setThumbnail(ytThumb);
-        }
-      }
     }
   }, [url]);
 
@@ -217,9 +248,23 @@ export const VideoModal: React.FC<VideoModalProps> = ({
     }
   };
 
+  // Video File Upload handler (MP4/WebM)
+  const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setVideoUploadName(file.name);
+      const objectUrl = URL.createObjectURL(file);
+      setPreviewVideoUrl(objectUrl);
+      setDetectedPlatform('direct');
+      if (!title) {
+        setTitle(file.name.replace(/\.[^/.]+$/, ''));
+      }
+    }
+  };
+
   // Preset link helpers
   const handleApplyOfficialLink = () => {
-    setUrl(OFFICIAL_PAGE_INFO.officialUrl);
+    handleUrlChange(OFFICIAL_PAGE_INFO.officialUrl);
     setTitle('វីដេអូចំណេះដឹងថ្មីពីទំព័រ នាំដឹង - To Know');
     setDescription('វីដេអូចែករំលែកចំណេះដឹង បច្ចេកវិទ្យា និងវិទ្យាសាស្ត្រពីទំព័រហ្វេសប៊ុកផ្លូវការ "នាំដឹង - To Know"។');
     setCategory('បច្ចេកវិទ្យា');
@@ -227,7 +272,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
   };
 
   const handleApplySampleYoutube = () => {
-    setUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    handleUrlChange('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     setTitle('បទបង្ហាញអំពីបច្ចេកវិទ្យាជំនាន់ថ្មី និងបញ្ញាសិប្បនិម្មិត');
     setCategory('បច្ចេកវិទ្យា');
     setThumbnail('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
@@ -239,9 +284,10 @@ export const VideoModal: React.FC<VideoModalProps> = ({
     e.preventDefault();
     if (!title.trim()) return;
 
-    // Fallback URL if empty
-    const finalUrl = url.trim() || OFFICIAL_PAGE_INFO.officialUrl;
-    const detected = detectPlatform(finalUrl);
+    // Clean URL if Facebook
+    const rawUrl = url.trim() || OFFICIAL_PAGE_INFO.officialUrl;
+    const detected = detectPlatform(rawUrl);
+    const finalUrl = detected === 'facebook' ? cleanFacebookUrl(rawUrl) : rawUrl;
     const embed = getEmbedUrl(finalUrl);
     const tags = tagsInput
       .split(',')
@@ -254,7 +300,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
       titleEn: titleEn.trim() || undefined,
       url: finalUrl,
       embedUrl: embed,
-      previewVideoUrl: editVideo?.previewVideoUrl || (detected === 'direct' ? finalUrl : undefined),
+      previewVideoUrl: previewVideoUrl.trim() || editVideo?.previewVideoUrl || (detected === 'direct' ? finalUrl : undefined),
       platform: detected,
       category,
       description: description.trim() || (lang === 'km' ? 'វីដេអូចំណេះដឹងពីទំព័រ នាំដឹង - To Know' : 'Educational video from To Know'),
@@ -375,7 +421,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                     type="url"
                     required
                     value={url}
-                    onChange={(e) => setUrl(e.target.value)}
+                    onChange={(e) => handleUrlChange(e.target.value)}
                     placeholder="https://www.facebook.com/share/... ឬ https://youtube.com/watch?v=..."
                     className="w-full px-3.5 py-3 bg-slate-950/80 border border-white/15 rounded-xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 text-white placeholder-slate-500 text-sm transition-all"
                   />
@@ -401,33 +447,96 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                 </div>
               </div>
 
-              {/* Detected Live Preview Card */}
+              {/* Detected Live Preview Card with Test Play */}
               {url.trim() && (
-                <div className="bg-slate-950/60 rounded-2xl border border-white/10 p-3.5 flex gap-3.5 items-center">
-                  <div className="relative w-28 sm:w-36 aspect-video rounded-xl overflow-hidden bg-slate-800 border border-white/10 shrink-0">
-                    <img
-                      src={thumbnail || THUMBNAIL_PRESETS[0].url}
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                      <Play className="w-5 h-5 text-white/90 fill-current" />
-                    </div>
-                  </div>
-                  <div className="min-w-0 flex-1 text-xs">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="font-bold uppercase text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
-                        {detectedPlatform}
+                <div className="bg-slate-950/80 rounded-2xl border border-indigo-400/30 p-3.5 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-xs font-bold text-emerald-300">
+                        {detectedPlatform === 'facebook'
+                          ? (lang === 'km' ? '✅ បានទាញយកតំណភ្ជាប់វីដេអូ Facebook រួចរាល់' : 'Facebook video link extracted')
+                          : (lang === 'km' ? '✅ បានរកឃើញតំណភ្ជាប់វីដេអូ' : 'Video link detected')}
                       </span>
-                      <span className="text-slate-400">{duration}</span>
                     </div>
-                    <p className="font-semibold text-white line-clamp-1">
-                      {title || (lang === 'km' ? 'សូមបញ្ចូលចំណងជើងវីដេអូខាងក្រោម' : 'Enter video title below')}
-                    </p>
-                    <p className="text-slate-400 text-[11px] line-clamp-1 mt-0.5">
-                      {url}
-                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsPlayingPreview((prev) => !prev)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition-all"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>
+                        {isPlayingPreview
+                          ? (lang === 'km' ? 'បិទផ្ទាំងចាក់សាកល្បង' : 'Close Preview')
+                          : (lang === 'km' ? '🎬 ចាក់សាកល្បងលើកម្មវិធី (Test Play)' : 'Test Play in App')}
+                      </span>
+                    </button>
                   </div>
+
+                  {/* Live Player Container */}
+                  {isPlayingPreview ? (
+                    <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/15 shadow-inner">
+                      {detectedPlatform === 'facebook' ? (
+                        <iframe
+                          src={getFacebookEmbedUrl(cleanFacebookUrl(url), true)}
+                          title="Facebook Test Play"
+                          className="w-full h-full border-0"
+                          scrolling="no"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                      ) : detectedPlatform === 'youtube' ? (
+                        <iframe
+                          src={getEmbedUrl(url)}
+                          title="YouTube Test Play"
+                          className="w-full h-full border-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <video
+                          src={previewVideoUrl || url}
+                          controls
+                          autoPlay
+                          className="w-full h-full object-contain"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => setIsPlayingPreview(true)}
+                      className="flex gap-3.5 items-center p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer group"
+                      title={lang === 'km' ? 'ចុចដើម្បីចាក់សាកល្បងលើកម្មវិធី' : 'Click to test play'}
+                    >
+                      <div className="relative w-28 sm:w-36 aspect-video rounded-xl overflow-hidden bg-slate-800 border border-white/10 shrink-0">
+                        <img
+                          src={thumbnail || THUMBNAIL_PRESETS[0].url}
+                          alt="Preview"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 flex items-center justify-center transition-colors">
+                          <div className="w-8 h-8 rounded-full bg-indigo-600/90 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                            <Play className="w-4 h-4 fill-current ml-0.5" />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="min-w-0 flex-1 text-xs">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="font-bold uppercase text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
+                            {detectedPlatform}
+                          </span>
+                          <span className="text-slate-400">{duration}</span>
+                        </div>
+                        <p className="font-semibold text-white line-clamp-1 group-hover:text-indigo-300 transition-colors">
+                          {title || (lang === 'km' ? 'សូមបញ្ចូលចំណងជើងវីដេអូខាងក្រោម' : 'Enter video title below')}
+                        </p>
+                        <p className="text-slate-400 text-[11px] line-clamp-1 mt-0.5 font-mono">
+                          {cleanFacebookUrl(url)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -541,7 +650,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                 <label className="block font-semibold text-slate-200 mb-1 text-xs sm:text-sm flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Link2 className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>{lang === 'km' ? 'តំណភ្ជាប់វីដេអូ ឬប្រភព MP4 *' : 'Video URL or Direct Link *'}</span>
+                    <span>{lang === 'km' ? 'តំណភ្ជាប់វីដេអូ Facebook ឬ YouTube *' : 'Video URL (Facebook / YouTube) *'}</span>
                   </span>
                   <button
                     type="button"
@@ -555,10 +664,50 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                   type="url"
                   required
                   value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  onChange={(e) => handleUrlChange(e.target.value)}
                   placeholder="https://www.facebook.com/... ឬ direct .mp4 link"
                   className="w-full px-3.5 py-2.5 bg-white/5 border border-white/15 rounded-xl focus:ring-2 focus:ring-indigo-500/50 text-white placeholder-slate-500 text-xs sm:text-sm font-mono"
                 />
+              </div>
+
+              {/* Optional Direct MP4 / Video Upload */}
+              <div className="bg-white/5 p-3.5 rounded-2xl border border-white/10 space-y-2">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <label className="font-semibold text-slate-300 text-xs flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>{lang === 'km' ? 'វីដេអូ MP4 សម្រាប់ចាក់ក្នុង App (ស្រេចចិត្ត - Optional)' : 'Direct Video Stream / Upload (Optional)'}</span>
+                  </label>
+                  {videoUploadName && (
+                    <span className="text-[11px] text-emerald-400">
+                      ✓ {videoUploadName}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="url"
+                    value={previewVideoUrl}
+                    onChange={(e) => setPreviewVideoUrl(e.target.value)}
+                    placeholder="https://example.com/video.mp4"
+                    className="flex-1 px-3 py-2 bg-slate-950/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 font-mono"
+                  />
+                  <input
+                    ref={videoFileInputRef}
+                    type="file"
+                    accept="video/mp4,video/webm"
+                    onChange={handleVideoFileChange}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => videoFileInputRef.current?.click()}
+                    className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold shrink-0 transition-colors border border-white/10 flex items-center gap-1"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{lang === 'km' ? 'ផ្ទុកឡើង MP4' : 'Upload'}</span>
+                  </button>
+                </div>
               </div>
 
               {/* Thumbnail Selector: Upload File or URL or Presets */}

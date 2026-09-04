@@ -37,6 +37,74 @@ export function getYouTubeThumbnail(url: string): string | null {
 }
 
 /**
+ * Clean Facebook URLs by removing mobile prefixes and tracking parameters
+ */
+export function cleanFacebookUrl(url: string): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  try {
+    const parsed = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
+    if (
+      parsed.hostname === 'm.facebook.com' ||
+      parsed.hostname === 'mobile.facebook.com' ||
+      parsed.hostname === 'web.facebook.com' ||
+      parsed.hostname === 'l.facebook.com'
+    ) {
+      parsed.hostname = 'www.facebook.com';
+    }
+    // Strip common tracking and referrer params that prevent embeds
+    const trackingParams = [
+      'mibextid',
+      'rdid',
+      'ref',
+      'sfnsn',
+      'fbclid',
+      '__cft__',
+      '__tn__',
+      'app',
+      'source',
+      'fs',
+      'comment_id',
+    ];
+    trackingParams.forEach((p) => parsed.searchParams.delete(p));
+
+    return parsed.toString();
+  } catch {
+    return trimmed;
+  }
+}
+
+/**
+ * Generate Facebook Video Embed plugin URL with proper encoding and autoplay
+ */
+export function getFacebookEmbedUrl(url: string, autoplay = true): string {
+  const clean = cleanFacebookUrl(url);
+  const encoded = encodeURIComponent(clean);
+  return `https://www.facebook.com/plugins/video.php?height=476&href=${encoded}&show_text=false&width=476&t=0${autoplay ? '&autoplay=true' : ''}`;
+}
+
+/**
+ * Extract useful info from a Facebook video URL
+ */
+export function extractFacebookVideoInfo(url: string) {
+  const clean = cleanFacebookUrl(url);
+  const embedUrl = getFacebookEmbedUrl(clean, true);
+
+  // Check if it is a Reel
+  const isReel = clean.includes('/reel/') || clean.includes('/reels/');
+  // Check if it is a Watch URL
+  const isWatch = clean.includes('/watch') || clean.includes('fb.watch');
+
+  return {
+    cleanUrl: clean,
+    embedUrl,
+    isReel,
+    isWatch,
+    suggestedCategory: isReel ? ('គន្លឹះខ្លីៗ' as VideoCategory) : undefined,
+  };
+}
+
+/**
  * Generate embed URL if applicable
  */
 export function getEmbedUrl(url: string): string {
@@ -50,9 +118,8 @@ export function getEmbedUrl(url: string): string {
   }
 
   // Facebook Video Embed plugin URL
-  if (trimmed.includes('facebook.com') || trimmed.includes('fb.watch')) {
-    const encoded = encodeURIComponent(trimmed);
-    return `https://www.facebook.com/plugins/video.php?height=476&href=${encoded}&show_text=false&width=476&t=0`;
+  if (trimmed.includes('facebook.com') || trimmed.includes('fb.watch') || trimmed.includes('fb.com')) {
+    return getFacebookEmbedUrl(trimmed, true);
   }
 
   // Direct video
