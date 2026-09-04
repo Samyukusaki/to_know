@@ -1,0 +1,108 @@
+{
+  "entities": {
+    "Video": {
+      "title": "Video",
+      "description": "A video document managed in the To Know library",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the video"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the video in Khmer",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "titleEn": {
+          "type": "string",
+          "description": "Optional English title of the video",
+          "maxLength": 200
+        },
+        "url": {
+          "type": "string",
+          "description": "URL of the video (Facebook, YouTube, direct MP4)",
+          "minLength": 5,
+          "maxLength": 1000
+        },
+        "embedUrl": {
+          "type": "string",
+          "description": "Embeddable player URL",
+          "maxLength": 1000
+        },
+        "platform": {
+          "type": "string",
+          "enum": ["facebook", "youtube", "direct", "other"]
+        },
+        "category": {
+          "type": "string",
+          "enum": ["បច្ចេកវិទ្យា", "វិទ្យាសាស្ត្រ", "ចំណេះដឹងទូទៅ", "ប្រវត្តិសាស្ត្រ", "សុខភាព & ខួរក្បាល", "គន្លឹះខ្លីៗ"]
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "thumbnail": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "duration": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "views": {
+          "type": "number",
+          "description": "View count"
+        },
+        "likes": {
+          "type": "number",
+          "description": "Like count"
+        },
+        "shares": {
+          "type": "number",
+          "description": "Share count"
+        },
+        "publishDate": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "status": {
+          "type": "string",
+          "enum": ["published", "draft", "scheduled"]
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of tags associated with the video"
+        },
+        "isFavorite": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "creatorChecklist": {
+          "type": "object",
+          "description": "Production checklist items"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "title", "url", "platform", "category", "status"]
+    }
+  },
+  "firestore": {
+    "/videos/{videoId}": {
+      "schema": { "$ref": "#/entities/Video" },
+      "description": "Collection of all To Know educational videos stored in the Cloud"
+    }
+  }
+}
