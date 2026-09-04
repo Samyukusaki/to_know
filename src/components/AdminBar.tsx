@@ -166,11 +166,11 @@ export const AdminBar: React.FC<AdminBarProps> = ({
               if (onLockAdmin) onLockAdmin();
               else onToggleAdminMode();
             }}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-red-300 hover:text-white bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-xl transition-colors"
-            title={lang === 'km' ? 'ចាកចេញពី Admin (Lock)' : 'Lock Admin Mode'}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-200 hover:text-white bg-red-600/30 hover:bg-red-600/50 border border-red-400/40 rounded-xl transition-all shadow-sm active:scale-95"
+            title={lang === 'km' ? 'ចាកចេញពី Admin (តម្រូវឲ្យបញ្ចូលលេខសម្ងាត់សារជាថ្មីដើម្បីចូលម្តងទៀត)' : 'Log out from Admin (Passcode required to re-enter)'}
           >
-            <Lock className="w-3.5 h-3.5 text-red-400" />
-            <span className="hidden sm:inline">{lang === 'km' ? 'ចាកចេញ' : 'Lock'}</span>
+            <Lock className="w-3.5 h-3.5 text-red-300" />
+            <span>{lang === 'km' ? 'ចាកចេញ (Lock)' : 'Logout'}</span>
           </button>
         </div>
       </div>

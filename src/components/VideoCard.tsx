@@ -211,6 +211,16 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 
           <button
             type="button"
+            onClick={() => onPlay(video)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-md shadow-indigo-600/20 active:scale-95"
+            title="ទស្សនាវីដេអូ (Play)"
+          >
+            <Play className="w-3.5 h-3.5 fill-current" />
+            <span>{lang === 'km' ? 'ទស្សនា' : 'Play'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleCopyLink}
             className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
             title="ចម្លងតំណភ្ជាប់"
@@ -406,7 +416,17 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           </div>
 
           {/* Quick Actions */}
-          <div className="flex items-center gap-0.5 sm:gap-1">
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            <button
+              type="button"
+              onClick={() => onPlay(video)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-sm transition-all active:scale-95"
+              title="ទស្សនាវីដេអូ"
+            >
+              <Play className="w-3 h-3 fill-current" />
+              <span>{lang === 'km' ? 'ទស្សនា' : 'Play'}</span>
+            </button>
+
             <button
               type="button"
               onClick={handleCopyLink}

@@ -106,3 +106,24 @@ export function toKhmerNumerals(val: string | number): string {
   const khmerDigits = ['០', '១', '២', '៣', '៤', '៥', '៦', '៧', '៨', '៩'];
   return String(val).replace(/[0-9]/g, (w) => khmerDigits[+w]);
 }
+
+/**
+ * Fallback high-definition stream for immediate in-app playback
+ */
+export function getFallbackVideoForCategory(category?: VideoCategory): string {
+  switch (category) {
+    case 'បច្ចេកវិទ្យា':
+      return 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4';
+    case 'វិទ្យាសាស្ត្រ':
+      return 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4';
+    case 'សុខភាព & ខួរក្បាល':
+      return 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyBlazes.mp4';
+    case 'ប្រវត្តិសាស្ត្រ':
+      return 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4';
+    case 'គន្លឹះខ្លីៗ':
+      return 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4';
+    case 'ចំណេះដឹងទូទៅ':
+    default:
+      return 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4';
+  }
+}

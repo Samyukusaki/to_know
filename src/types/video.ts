@@ -16,6 +16,7 @@ export interface VideoItem {
   titleEn?: string;
   url: string;
   embedUrl?: string;
+  previewVideoUrl?: string;
   platform: VideoPlatform;
   category: VideoCategory;
   description: string;

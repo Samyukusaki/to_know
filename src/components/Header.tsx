@@ -94,34 +94,39 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Actions & Official Link */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-            {/* Admin Mode Toggle */}
+            {/* Admin Mode Toggle / Logout */}
             <button
               id="header-admin-toggle-btn"
               type="button"
               onClick={onToggleAdminMode}
-              className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-semibold rounded-xl transition-all border backdrop-blur-md ${
+              className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-semibold rounded-xl transition-all border backdrop-blur-md active:scale-95 ${
                 isAdminMode
-                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40 shadow-sm'
-                  : 'bg-white/5 text-slate-300 hover:text-white border-white/10 hover:bg-white/10'
+                  ? 'bg-red-500/15 hover:bg-red-500/25 text-red-300 border-red-500/40 shadow-sm'
+                  : 'bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white border-indigo-400/30'
               }`}
               title={
                 isAdminMode
                   ? lang === 'km'
-                    ? 'មុខងារ Admin កំពុងបើក (ចុចដើម្បីបិទ ឬចាកចេញ)'
-                    : 'Admin Mode Active (Click to switch or lock)'
+                    ? 'ចុចដើម្បីចាកចេញពី Admin (Lock) - តម្រូវឲ្យបញ្ចូលលេខសម្ងាត់សារជាថ្មី'
+                    : 'Click to log out of Admin (Passcode required to re-enter)'
                   : lang === 'km'
                   ? 'បញ្ចូលលេខកូដសម្ងាត់ដើម្បីចូល Admin'
                   : 'Enter passcode to access Admin'
               }
             >
               {isAdminMode ? (
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <>
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="font-bold">Admin</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/30 text-red-200 border border-red-400/30">
+                    {lang === 'km' ? 'ចាកចេញ' : 'Lock'}
+                  </span>
+                </>
               ) : (
-                <Lock className="w-3.5 h-3.5 text-slate-400" />
-              )}
-              <span className="hidden sm:inline">Admin</span>
-              {isAdminMode && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <>
+                  <Lock className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>{lang === 'km' ? 'ចូលជា Admin' : 'Admin'}</span>
+                </>
               )}
             </button>
 

@@ -254,6 +254,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
       titleEn: titleEn.trim() || undefined,
       url: finalUrl,
       embedUrl: embed,
+      previewVideoUrl: editVideo?.previewVideoUrl || (detected === 'direct' ? finalUrl : undefined),
       platform: detected,
       category,
       description: description.trim() || (lang === 'km' ? 'វីដេអូចំណេះដឹងពីទំព័រ នាំដឹង - To Know' : 'Educational video from To Know'),

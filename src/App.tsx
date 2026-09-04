@@ -450,26 +450,31 @@ export default function App() {
     setIsAdminAuthenticated(false);
     setIsAdminMode(false);
     sessionStorage.removeItem(ADMIN_AUTH_KEY);
+    safeStorage.setSession(ADMIN_AUTH_KEY, 'false');
+    safeStorage.set(ADMIN_STORAGE_KEY, 'false');
     setBatchSelectMode(false);
     setSelectedVideoIds([]);
     showToast(
       lang === 'km'
-        ? 'បានចាកចេញពីមុខងារ Admin រួចរាល់!'
-        : 'Admin mode locked!'
+        ? 'បានចាកចេញពី Admin រួចរាល់! (ត្រូវបញ្ចូលលេខសម្ងាត់សារជាថ្មីដើម្បីចូល)'
+        : 'Logged out of Admin! Passcode required to re-enter.'
     );
   };
 
   const handleToggleAdminMode = () => {
-    if (!isAdminAuthenticated) {
+    if (isAdminMode) {
+      // Exiting Admin mode locks session and requires passcode next time
+      handleLockAdmin();
+    } else {
+      // Entering Admin mode strictly requires entering the secret passcode
       setAuthModal({
         isOpen: true,
         mode: 'verify',
         pendingAction: () => {
+          setIsAdminAuthenticated(true);
           setIsAdminMode(true);
         },
       });
-    } else {
-      setIsAdminMode((prev) => !prev);
     }
   };
 
