@@ -1,6 +1,7 @@
 import React from 'react';
 import { ExternalLink, CheckCircle, Sparkles, Compass, Users, ThumbsUp, Video } from 'lucide-react';
 import { OFFICIAL_PAGE_INFO } from '../data/initialVideos';
+import { ChannelLogo } from './ChannelLogo';
 
 interface ChannelHeroProps {
   onQuickCategory: (category: string) => void;
@@ -18,11 +19,7 @@ export const ChannelHero: React.FC<ChannelHeroProps> = ({ onQuickCategory, lang 
         {/* Channel Identity */}
         <div className="flex items-start gap-4 sm:gap-5">
           <div className="relative shrink-0">
-            <img
-              src={OFFICIAL_PAGE_INFO.avatar}
-              alt={OFFICIAL_PAGE_INFO.nameKm}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover ring-2 ring-white/20 shadow-xl"
-            />
+            <ChannelLogo size="lg" />
             <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-indigo-500 text-white flex items-center justify-center ring-2 ring-slate-950 shadow-md">
               <CheckCircle className="w-3.5 h-3.5 fill-current" />
             </div>

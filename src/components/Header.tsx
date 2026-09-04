@@ -1,6 +1,7 @@
 import React from 'react';
 import { Video, Plus, ExternalLink, Database, Globe, Cloud, LogIn, LogOut, ShieldCheck, Lock } from 'lucide-react';
 import { OFFICIAL_PAGE_INFO } from '../data/initialVideos';
+import { ChannelLogo } from './ChannelLogo';
 import type { User as FirebaseUser } from 'firebase/auth';
 
 interface HeaderProps {
@@ -36,9 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center justify-between h-16 sm:h-18">
           {/* Logo & Brand */}
           <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 border border-indigo-400/30 shrink-0">
-              <Video className="w-5 h-5 sm:w-6 sm:h-6" />
-            </div>
+            <ChannelLogo size="sm" />
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <h1 className="text-base sm:text-lg font-bold text-white tracking-tight leading-tight truncate">

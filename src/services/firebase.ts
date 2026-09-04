@@ -106,7 +106,11 @@ export function subscribeToVideos(
     },
     (error) => {
       onError?.(error);
-      handleFirestoreError(error, OperationType.GET, VIDEOS_COLLECTION);
+      try {
+        handleFirestoreError(error, OperationType.GET, VIDEOS_COLLECTION);
+      } catch (err) {
+        console.warn('Firestore subscription fallback to local cache:', err);
+      }
     }
   );
 }
