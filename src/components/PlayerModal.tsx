@@ -17,6 +17,7 @@ import {
   Film,
   Sparkles,
   AlertCircle,
+  Images,
 } from 'lucide-react';
 import { VideoItem } from '../types/video';
 import {
@@ -28,6 +29,7 @@ import {
   cleanFacebookUrl,
 } from '../utils/videoHelper';
 import { OFFICIAL_PAGE_INFO } from '../data/initialVideos';
+import { PhotoGalleryPlayer } from './PhotoGalleryPlayer';
 
 interface PlayerModalProps {
   video: VideoItem | null;
@@ -55,17 +57,26 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
   // Extracted stream state (either already on video object, or dynamically resolved)
   const [dynamicStreamUrl, setDynamicStreamUrl] = useState<string | null>(null);
 
+  // Gallery detection
+  const hasImages = Boolean(video && video.images && video.images.length > 0);
+  const isGalleryOnly = Boolean(video && (video.mediaType === 'gallery' || (!video.url && hasImages)));
+  const [selectedGalleryIndex, setSelectedGalleryIndex] = useState(0);
+
   // If a direct stream is available, default to in-app player for instant native playback!
   const hasDirectStream = Boolean(video?.previewVideoUrl || dynamicStreamUrl || isDirect);
-  const [playerMode, setPlayerMode] = useState<'in-app' | 'embed'>(() => {
+  const [playerMode, setPlayerMode] = useState<'in-app' | 'embed' | 'gallery'>(() => {
+    if (isGalleryOnly) return 'gallery';
     return hasDirectStream ? 'in-app' : 'embed';
   });
 
   useEffect(() => {
     setDynamicStreamUrl(null);
     setIframeError(false);
+    setSelectedGalleryIndex(0);
 
-    if (video?.previewVideoUrl || isDirect) {
+    if (video?.mediaType === 'gallery' || (!video?.url && video?.images && video.images.length > 0)) {
+      setPlayerMode('gallery');
+    } else if (video?.previewVideoUrl || isDirect) {
       setPlayerMode('in-app');
     } else {
       setPlayerMode('embed');
@@ -87,7 +98,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
         })
         .catch((err) => console.warn('Background stream extract error:', err));
     }
-  }, [video?.id, video?.previewVideoUrl, isDirect, isFacebook, video?.url]);
+  }, [video?.id, video?.previewVideoUrl, isDirect, isFacebook, video?.url, video?.mediaType, video?.images]);
 
   if (!video) return null;
 
@@ -132,36 +143,61 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             {/* Player Mode Switch Tabs */}
             <div className="flex items-center bg-slate-950/80 p-0.5 rounded-xl border border-white/10 text-[11px]">
-              <button
-                type="button"
-                onClick={() => {
-                  setPlayerMode('embed');
-                  setIframeError(false);
-                }}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                  playerMode === 'embed'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-                title={lang === 'km' ? 'ចាក់វីដេអូពីប្រភពដើម (Facebook / YouTube)' : 'Play original video (Facebook / YouTube)'}
-              >
-                <Globe className="w-3.5 h-3.5" />
-                <span>{isYouTube ? 'YouTube' : 'Facebook Video'}</span>
-              </button>
+              {!isGalleryOnly && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlayerMode('embed');
+                      setIframeError(false);
+                    }}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                      playerMode === 'embed'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title={lang === 'km' ? 'ចាក់វីដេអូពីប្រភពដើម (Facebook / YouTube)' : 'Play original video (Facebook / YouTube)'}
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>{isYouTube ? 'YouTube' : 'Facebook Video'}</span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setPlayerMode('in-app')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                  playerMode === 'in-app'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-                title={lang === 'km' ? 'ចាក់វីដេអូទម្រង់ In-App Player (HD Stream)' : 'Play in In-App Player'}
-              >
-                <Film className="w-3.5 h-3.5" />
-                <span>{lang === 'km' ? 'ចាក់ក្នុង App' : 'In-App'}</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlayerMode('in-app')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                      playerMode === 'in-app'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title={lang === 'km' ? 'ចាក់វីដេអូទម្រង់ In-App Player (HD Stream)' : 'Play in In-App Player'}
+                  >
+                    <Film className="w-3.5 h-3.5" />
+                    <span>{lang === 'km' ? 'ចាក់ក្នុង App' : 'In-App'}</span>
+                  </button>
+                </>
+              )}
+
+              {/* Gallery Mode Tab Button */}
+              {hasImages && (
+                <button
+                  type="button"
+                  onClick={() => setPlayerMode('gallery')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                    playerMode === 'gallery'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title={lang === 'km' ? 'មើលផ្ទាំងរូបភាព' : 'View photo gallery'}
+                >
+                  <Images className="w-3.5 h-3.5 text-amber-300" />
+                  <span>
+                    {lang === 'km'
+                      ? `ផ្ទាំងរូបភាព (${num(video.images?.length || 0)})`
+                      : `Photos (${video.images?.length || 0})`}
+                  </span>
+                </button>
+              )}
             </div>
 
             {/* Favorite button */}
@@ -190,7 +226,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
           </div>
         </div>
 
-        {/* Video Player Container */}
+        {/* Video / Gallery Player Container */}
         <div className="relative aspect-video w-full bg-black flex items-center justify-center overflow-hidden shrink-0">
           {/* 1. Official Embed Player (Facebook Video or YouTube) */}
           {playerMode === 'embed' && (
@@ -276,6 +312,17 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
                 </span>
               </div>
             </div>
+          )}
+
+          {/* 3. Photo Gallery Player */}
+          {playerMode === 'gallery' && (
+            <PhotoGalleryPlayer
+              images={video.images || []}
+              title={video.title}
+              initialIndex={selectedGalleryIndex}
+              lang={lang}
+              onImageChange={setSelectedGalleryIndex}
+            />
           )}
         </div>
 
@@ -368,6 +415,69 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* Attached Photo Album / Gallery Strip */}
+          {hasImages && (
+            <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-indigo-600/30 text-indigo-300 border border-indigo-400/20">
+                    <Images className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      {lang === 'km'
+                        ? `ផ្ទាំងរូបភាពអម / អាល់ប៊ុមរូបភាព (${num(video.images?.length || 0)} រូប)`
+                        : `Attached Photos Gallery (${video.images?.length || 0})`}
+                    </h4>
+                    <p className="text-[11px] text-slate-400">
+                      {lang === 'km'
+                        ? 'ចុចលើរូបភាពណាមួយដើម្បីពង្រីកមើលក្នុងផ្ទាំង Slideshow ខាងលើ'
+                        : 'Click any photo to view full size in slideshow player above'}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedGalleryIndex(0);
+                    setPlayerMode('gallery');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Images className="w-3.5 h-3.5" />
+                  <span>{lang === 'km' ? 'បើកផ្ទាំងរូបភាព' : 'Open Gallery'}</span>
+                </button>
+              </div>
+
+              {/* Photo Strip Grid */}
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5 pt-1">
+                {video.images?.map((imgUrl, idx) => (
+                  <button
+                    key={`${imgUrl}-${idx}`}
+                    type="button"
+                    onClick={() => {
+                      setSelectedGalleryIndex(idx);
+                      setPlayerMode('gallery');
+                    }}
+                    className="group relative aspect-square rounded-xl overflow-hidden border border-white/10 hover:border-indigo-400 hover:ring-2 hover:ring-indigo-400/40 transition-all bg-slate-950 focus:outline-hidden cursor-pointer"
+                  >
+                    <img
+                      src={imgUrl}
+                      alt={`Photo ${idx + 1}`}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-slate-950/40 group-hover:bg-slate-950/10 transition-colors flex items-center justify-center">
+                      <span className="absolute bottom-1 right-1 bg-black/80 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold text-white">
+                        #{idx + 1}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Tags */}
           {video.tags && video.tags.length > 0 && (

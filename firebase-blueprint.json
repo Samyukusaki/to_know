@@ -71,6 +71,20 @@
           "type": "string",
           "enum": ["published", "draft", "scheduled"]
         },
+        "mediaType": {
+          "type": "string",
+          "enum": ["video", "gallery", "mixed"],
+          "description": "Content media type: video, multi-image gallery, or mixed video and gallery"
+        },
+        "images": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of attached image URLs or uploaded photo slides"
+        },
+        "previewVideoUrl": {
+          "type": "string",
+          "description": "Direct extracted or uploaded video stream URL"
+        },
         "tags": {
           "type": "array",
           "items": { "type": "string" },

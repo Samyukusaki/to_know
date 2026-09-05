@@ -12,6 +12,7 @@ import {
   Check,
   CheckSquare,
   Square,
+  Images,
 } from 'lucide-react';
 import { VideoItem, VideoStatus, ViewMode } from '../types/video';
 import { formatCompactNumber, toKhmerNumerals } from '../utils/videoHelper';
@@ -135,9 +136,19 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             />
             <div className="absolute inset-0 bg-black/25 group-hover/thumb:bg-black/40 transition-colors flex items-center justify-center">
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/90 text-slate-950 flex items-center justify-center shadow-lg transform scale-90 group-hover/thumb:scale-100 transition-transform">
-                <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current translate-x-0.5 text-indigo-600" />
+                {video.mediaType === 'gallery' ? (
+                  <Images className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
+                ) : (
+                  <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current translate-x-0.5 text-indigo-600" />
+                )}
               </div>
             </div>
+            {video.images && video.images.length > 0 && (
+              <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-950/85 text-amber-300 border border-amber-400/30 backdrop-blur-md">
+                <Images className="w-2.5 h-2.5 text-amber-400" />
+                <span>{num(video.images.length)}</span>
+              </span>
+            )}
             {video.duration && (
               <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[10px] sm:text-[11px] font-mono font-medium bg-slate-950/80 backdrop-blur-md text-white border border-white/10">
                 {video.duration}
@@ -295,7 +306,11 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         {/* Hover play button overlay */}
         <div className="absolute inset-0 bg-black/25 group-hover:bg-black/45 transition-colors flex items-center justify-center">
           <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 text-slate-950 flex items-center justify-center shadow-xl transform scale-90 group-hover:scale-100 transition-all">
-            <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current translate-x-0.5 text-indigo-600" />
+            {video.mediaType === 'gallery' ? (
+              <Images className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
+            ) : (
+              <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current translate-x-0.5 text-indigo-600" />
+            )}
           </div>
         </div>
 
@@ -352,6 +367,14 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         >
           <Star className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${video.isFavorite ? 'fill-current' : ''}`} />
         </button>
+
+        {/* Gallery count badge */}
+        {video.images && video.images.length > 0 && (
+          <span className="absolute bottom-2.5 left-2.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-950/85 text-amber-300 border border-amber-400/30 backdrop-blur-md shadow-md">
+            <Images className="w-3.5 h-3.5 text-amber-400" />
+            <span>{num(video.images.length)} {lang === 'km' ? 'រូប' : 'photos'}</span>
+          </span>
+        )}
 
         {/* Duration badge */}
         {video.duration && (

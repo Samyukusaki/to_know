@@ -18,8 +18,9 @@ import {
   ExternalLink,
   HelpCircle,
   AlertCircle,
+  Images,
 } from 'lucide-react';
-import { VideoItem, VideoCategory, VideoPlatform, VideoStatus } from '../types/video';
+import { VideoItem, VideoCategory, VideoPlatform, VideoStatus, MediaType } from '../types/video';
 import {
   detectPlatform,
   getEmbedUrl,
@@ -30,6 +31,7 @@ import {
   extractFacebookVideoInfo,
 } from '../utils/videoHelper';
 import { OFFICIAL_PAGE_INFO } from '../data/initialVideos';
+import { ImageGalleryManager } from './ImageGalleryManager';
 
 interface VideoModalProps {
   isOpen: boolean;
@@ -90,6 +92,10 @@ export const VideoModal: React.FC<VideoModalProps> = ({
     subtitles: true,
   });
 
+  // Multiple Images / Gallery State
+  const [images, setImages] = useState<string[]>([]);
+  const [mediaType, setMediaType] = useState<MediaType>('video');
+
   // Helper State
   const [detectedPlatform, setDetectedPlatform] = useState<VideoPlatform>('facebook');
   const [isAutoDetecting, setIsAutoDetecting] = useState(false);
@@ -113,6 +119,8 @@ export const VideoModal: React.FC<VideoModalProps> = ({
       setStatus(editVideo.status);
       setDescription(editVideo.description);
       setThumbnail(editVideo.thumbnail);
+      setImages(editVideo.images || []);
+      setMediaType(editVideo.mediaType || (editVideo.images && editVideo.images.length > 0 ? 'mixed' : 'video'));
       setDuration(editVideo.duration);
       setViews(editVideo.views);
       setLikes(editVideo.likes);
@@ -137,6 +145,8 @@ export const VideoModal: React.FC<VideoModalProps> = ({
       setTitleEn('');
       setUrl('');
       setPreviewVideoUrl('');
+      setImages([]);
+      setMediaType('video');
       setIsPlayingPreview(false);
       setVideoUploadName('');
       setCategory('បច្ចេកវិទ្យា');
@@ -332,8 +342,16 @@ export const VideoModal: React.FC<VideoModalProps> = ({
     e.preventDefault();
     if (!title.trim()) return;
 
+    // Determine final media type
+    const finalMediaType: MediaType =
+      images.length > 0 && (url.trim() || previewVideoUrl.trim())
+        ? 'mixed'
+        : images.length > 0
+        ? 'gallery'
+        : 'video';
+
     // Clean URL if Facebook
-    const rawUrl = url.trim() || OFFICIAL_PAGE_INFO.officialUrl;
+    const rawUrl = url.trim() || (images.length > 0 ? images[0] : OFFICIAL_PAGE_INFO.officialUrl);
     const detected = detectPlatform(rawUrl);
     const finalUrl = detected === 'facebook' ? cleanFacebookUrl(rawUrl) : rawUrl;
     const embed = getEmbedUrl(finalUrl);
@@ -341,6 +359,9 @@ export const VideoModal: React.FC<VideoModalProps> = ({
       .split(',')
       .map((t) => t.trim().replace(/^#/, ''))
       .filter((t) => t.length > 0);
+
+    const finalThumbnail =
+      thumbnail.trim() || (images.length > 0 ? images[0] : THUMBNAIL_PRESETS[0].url);
 
     const videoItem: VideoItem = {
       id: editVideo ? editVideo.id : `tk-${Date.now()}`,
@@ -350,9 +371,11 @@ export const VideoModal: React.FC<VideoModalProps> = ({
       embedUrl: embed,
       previewVideoUrl: previewVideoUrl.trim() || editVideo?.previewVideoUrl || (detected === 'direct' ? finalUrl : undefined),
       platform: detected,
+      mediaType: finalMediaType,
+      images: images,
       category,
-      description: description.trim() || (lang === 'km' ? 'វីដេអូចំណេះដឹងពីទំព័រ នាំដឹង - To Know' : 'Educational video from To Know'),
-      thumbnail: thumbnail.trim() || THUMBNAIL_PRESETS[0].url,
+      description: description.trim() || (lang === 'km' ? 'វីដេអូចំណេះដឹងពីទំព័រ នាំដឹង - To Know' : 'Educational content from To Know'),
+      thumbnail: finalThumbnail,
       duration: duration.trim() || '04:00',
       views: Number(views) || 0,
       likes: Number(likes) || 0,
@@ -704,6 +727,15 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                   className="w-full px-3.5 py-2 bg-white/5 border border-white/15 rounded-xl focus:ring-2 focus:ring-indigo-500/50 text-white placeholder-slate-500 text-xs sm:text-sm"
                 />
               </div>
+
+              {/* Multi-Photo Gallery & Slides Manager */}
+              <ImageGalleryManager
+                images={images}
+                onChange={setImages}
+                thumbnail={thumbnail}
+                onSetThumbnail={setThumbnail}
+                lang={lang}
+              />
             </div>
           )}
 
@@ -713,7 +745,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
               {/* Title Khmer */}
               <div>
                 <label className="block font-bold text-slate-200 mb-1 text-xs sm:text-sm">
-                  {lang === 'km' ? 'ចំណងជើងវីដេអូ (ភាសាខ្មែរ) *' : 'Video Title (Khmer) *'}
+                  {lang === 'km' ? 'ចំណងជើងមាតិកា (ភាសាខ្មែរ) *' : 'Content Title (Khmer) *'}
                 </label>
                 <input
                   id="manual-title-input"
@@ -721,7 +753,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="បញ្ចូលចំណងជើងវីដេអូចំណេះដឹងជាភាសាខ្មែរ..."
+                  placeholder="បញ្ចូលចំណងជើងវីដេអូចំណេះដឹង ឬអាល់ប៊ុមរូបភាពជាភាសាខ្មែរ..."
                   className="w-full px-3.5 py-2.5 bg-white/5 border border-white/15 rounded-xl focus:ring-2 focus:ring-indigo-500/50 text-white placeholder-slate-500 text-sm"
                 />
               </div>
@@ -745,7 +777,15 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                 <label className="block font-semibold text-slate-200 mb-1 text-xs sm:text-sm flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Link2 className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>{lang === 'km' ? 'តំណភ្ជាប់វីដេអូ Facebook ឬ YouTube *' : 'Video URL (Facebook / YouTube) *'}</span>
+                    <span>
+                      {lang === 'km'
+                        ? images.length > 0
+                          ? 'តំណភ្ជាប់វីដេអូ Facebook ឬ YouTube (ស្រេចចិត្ត)'
+                          : 'តំណភ្ជាប់វីដេអូ Facebook ឬ YouTube *'
+                        : images.length > 0
+                        ? 'Video URL (Facebook / YouTube - Optional)'
+                        : 'Video URL (Facebook / YouTube) *'}
+                    </span>
                   </span>
                   <button
                     type="button"
@@ -758,7 +798,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                 <div className="flex items-center gap-2">
                   <input
                     type="url"
-                    required
+                    required={images.length === 0}
                     value={url}
                     onChange={(e) => handleUrlChange(e.target.value)}
                     onPaste={(e) => {
@@ -885,6 +925,15 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                   ))}
                 </div>
               </div>
+
+              {/* Multi-Photo Gallery & Slides Manager */}
+              <ImageGalleryManager
+                images={images}
+                onChange={setImages}
+                thumbnail={thumbnail}
+                onSetThumbnail={setThumbnail}
+                lang={lang}
+              />
 
               {/* Category, Status, Duration, Publish Date */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">

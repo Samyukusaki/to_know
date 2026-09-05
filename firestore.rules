@@ -27,10 +27,13 @@ service cloud.firestore {
         (!('titleEn' in data) || (data.titleEn is string && data.titleEn.size() <= 200)) &&
         data.url is string && data.url.size() >= 5 && data.url.size() <= 1000 &&
         (!('embedUrl' in data) || (data.embedUrl is string && data.embedUrl.size() <= 1000)) &&
+        (!('previewVideoUrl' in data) || (data.previewVideoUrl is string && data.previewVideoUrl.size() <= 3000)) &&
+        (!('mediaType' in data) || data.mediaType in ['video', 'gallery', 'mixed']) &&
+        (!('images' in data) || (data.images is list && data.images.size() <= 50)) &&
         data.platform in ['facebook', 'youtube', 'direct', 'other'] &&
         data.category in ['បច្ចេកវិទ្យា', 'វិទ្យាសាស្ត្រ', 'ចំណេះដឹងទូទៅ', 'ប្រវត្តិសាស្ត្រ', 'សុខភាព & ខួរក្បាល', 'គន្លឹះខ្លីៗ'] &&
         (!('description' in data) || (data.description is string && data.description.size() <= 5000)) &&
-        (!('thumbnail' in data) || (data.thumbnail is string && data.thumbnail.size() <= 1000)) &&
+        (!('thumbnail' in data) || (data.thumbnail is string && data.thumbnail.size() <= 600000)) &&
         (!('duration' in data) || (data.duration is string && data.duration.size() <= 20)) &&
         (!('views' in data) || (data.views is number && data.views >= 0)) &&
         (!('likes' in data) || (data.likes is number && data.likes >= 0)) &&
