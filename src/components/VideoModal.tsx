@@ -644,7 +644,6 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                           <span className="font-bold uppercase text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
                             {detectedPlatform}
                           </span>
-                          <span className="text-slate-400">{duration}</span>
                         </div>
                         <p className="font-semibold text-white line-clamp-1 group-hover:text-indigo-300 transition-colors">
                           {title || (lang === 'km' ? 'សូមបញ្ចូលចំណងជើងវីដេអូខាងក្រោម' : 'Enter video title below')}

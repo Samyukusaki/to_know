@@ -3,6 +3,7 @@ import {
   Play,
   Star,
   Eye,
+  Info,
   ThumbsUp,
   Share2,
   ExternalLink,
@@ -135,11 +136,11 @@ export const VideoCard: React.FC<VideoCardProps> = ({
               loading="lazy"
             />
             <div className="absolute inset-0 bg-black/25 group-hover/thumb:bg-black/40 transition-colors flex items-center justify-center">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/90 text-slate-950 flex items-center justify-center shadow-lg transform scale-90 group-hover/thumb:scale-100 transition-transform">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/95 text-slate-950 flex items-center justify-center shadow-lg transform scale-90 group-hover/thumb:scale-100 transition-transform">
                 {video.mediaType === 'gallery' ? (
                   <Images className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
                 ) : (
-                  <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current translate-x-0.5 text-indigo-600" />
+                  <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
                 )}
               </div>
             </div>
@@ -147,11 +148,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({
               <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-950/85 text-amber-300 border border-amber-400/30 backdrop-blur-md">
                 <Images className="w-2.5 h-2.5 text-amber-400" />
                 <span>{num(video.images.length)}</span>
-              </span>
-            )}
-            {video.duration && (
-              <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[10px] sm:text-[11px] font-mono font-medium bg-slate-950/80 backdrop-blur-md text-white border border-white/10">
-                {video.duration}
               </span>
             )}
           </div>
@@ -223,11 +219,11 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           <button
             type="button"
             onClick={() => onPlay(video)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-md shadow-indigo-600/20 active:scale-95"
-            title="ទស្សនាវីដេអូ (Play)"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
+            title={lang === 'km' ? 'មើលព័ត៌មានលម្អិតបន្ថែម' : 'View full details'}
           >
-            <Play className="w-3.5 h-3.5 fill-current" />
-            <span>{lang === 'km' ? 'ទស្សនា' : 'Play'}</span>
+            <Eye className="w-3.5 h-3.5" />
+            <span>{lang === 'km' ? 'ព័ត៌មានលម្អិត' : 'Details'}</span>
           </button>
 
           <button
@@ -303,14 +299,15 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           loading="lazy"
         />
 
-        {/* Hover play button overlay */}
-        <div className="absolute inset-0 bg-black/25 group-hover:bg-black/45 transition-colors flex items-center justify-center">
-          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 text-slate-950 flex items-center justify-center shadow-xl transform scale-90 group-hover:scale-100 transition-all">
+        {/* Hover details button overlay */}
+        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/95 text-slate-950 font-bold text-xs shadow-xl transform scale-90 group-hover:scale-100 transition-all">
             {video.mediaType === 'gallery' ? (
-              <Images className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
+              <Images className="w-4 h-4 text-indigo-600" />
             ) : (
-              <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current translate-x-0.5 text-indigo-600" />
+              <Eye className="w-4 h-4 text-indigo-600" />
             )}
+            <span>{lang === 'km' ? 'ព័ត៌មានលម្អិត' : 'View Details'}</span>
           </div>
         </div>
 
@@ -375,13 +372,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             <span>{num(video.images.length)} {lang === 'km' ? 'រូប' : 'photos'}</span>
           </span>
         )}
-
-        {/* Duration badge */}
-        {video.duration && (
-          <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded text-[11px] sm:text-xs font-mono font-medium bg-slate-950/80 backdrop-blur-md text-white border border-white/10 shadow-xs">
-            {video.duration}
-          </span>
-        )}
       </div>
 
       {/* Card Body */}
@@ -443,11 +433,11 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             <button
               type="button"
               onClick={() => onPlay(video)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-sm transition-all active:scale-95"
-              title="ទស្សនាវីដេអូ"
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-sm transition-all active:scale-95 cursor-pointer"
+              title={lang === 'km' ? 'មើលព័ត៌មានលម្អិតបន្ថែម' : 'View content details'}
             >
-              <Play className="w-3 h-3 fill-current" />
-              <span>{lang === 'km' ? 'ទស្សនា' : 'Play'}</span>
+              <Eye className="w-3.5 h-3.5" />
+              <span>{lang === 'km' ? 'ព័ត៌មានលម្អិត' : 'Details'}</span>
             </button>
 
             <button

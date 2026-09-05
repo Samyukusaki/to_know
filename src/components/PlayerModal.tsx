@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   X,
   ExternalLink,
@@ -10,22 +10,24 @@ import {
   Check,
   Edit3,
   Calendar,
-  Clock,
-  Play,
-  Tv,
-  Globe,
-  Film,
-  Sparkles,
-  AlertCircle,
   Images,
+  Maximize2,
+  Minimize2,
+  FileText,
+  Mic,
+  Image as ImageIcon,
+  Subtitles,
+  CheckCircle2,
+  Circle,
+  TrendingUp,
+  Bookmark,
+  Sparkles,
+  Info,
 } from 'lucide-react';
 import { VideoItem } from '../types/video';
 import {
   formatCompactNumber,
   toKhmerNumerals,
-  getFallbackVideoForCategory,
-  getYouTubeId,
-  getFacebookEmbedUrl,
   cleanFacebookUrl,
 } from '../utils/videoHelper';
 import { OFFICIAL_PAGE_INFO } from '../data/initialVideos';
@@ -47,148 +49,96 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
   lang,
 }) => {
   const [copied, setCopied] = useState(false);
-  const [iframeError, setIframeError] = useState(false);
-
-  // Video type detection
-  const isYouTube = Boolean(video && (video.platform === 'youtube' || video.url.includes('youtu')));
-  const isDirect = Boolean(video && (video.platform === 'direct' || video.url.endsWith('.mp4') || video.url.endsWith('.webm')));
-  const isFacebook = Boolean(video && (video.platform === 'facebook' || video.url.includes('facebook.com') || video.url.includes('fb.watch')));
-
-  // Extracted stream state (either already on video object, or dynamically resolved)
-  const [dynamicStreamUrl, setDynamicStreamUrl] = useState<string | null>(null);
-
-  // Gallery detection
-  const hasImages = Boolean(video && video.images && video.images.length > 0);
-  const isGalleryOnly = Boolean(video && (video.mediaType === 'gallery' || (!video.url && hasImages)));
+  const [activeMediaView, setActiveMediaView] = useState<'thumbnail' | 'gallery'>('thumbnail');
   const [selectedGalleryIndex, setSelectedGalleryIndex] = useState(0);
-
-  // If a direct stream is available, default to in-app player for instant native playback!
-  const hasDirectStream = Boolean(video?.previewVideoUrl || dynamicStreamUrl || isDirect);
-  const [playerMode, setPlayerMode] = useState<'in-app' | 'embed' | 'gallery'>(() => {
-    if (isGalleryOnly) return 'gallery';
-    return hasDirectStream ? 'in-app' : 'embed';
-  });
-
-  useEffect(() => {
-    setDynamicStreamUrl(null);
-    setIframeError(false);
-    setSelectedGalleryIndex(0);
-
-    if (video?.mediaType === 'gallery' || (!video?.url && video?.images && video.images.length > 0)) {
-      setPlayerMode('gallery');
-    } else if (video?.previewVideoUrl || isDirect) {
-      setPlayerMode('in-app');
-    } else {
-      setPlayerMode('embed');
-    }
-
-    // If Facebook video without previewVideoUrl, attempt on-the-fly extraction
-    if (video && isFacebook && !video.previewVideoUrl) {
-      fetch('/api/extract-video', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: video.url }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.directVideoUrl) {
-            setDynamicStreamUrl(data.directVideoUrl);
-            setPlayerMode('in-app');
-          }
-        })
-        .catch((err) => console.warn('Background stream extract error:', err));
-    }
-  }, [video?.id, video?.previewVideoUrl, isDirect, isFacebook, video?.url, video?.mediaType, video?.images]);
+  const [isThumbnailFullscreen, setIsThumbnailFullscreen] = useState(false);
 
   if (!video) return null;
 
+  const hasImages = Boolean(video.images && video.images.length > 0);
+  const num = (n: number | string) => (lang === 'km' ? toKhmerNumerals(n) : String(n));
+
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(video.url);
+    navigator.clipboard.writeText(video.url || window.location.href);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const num = (n: number | string) => (lang === 'km' ? toKhmerNumerals(n) : String(n));
+  // Engagement calculation
+  const totalInteractions = (video.likes || 0) + (video.shares || 0);
+  const engagementRate =
+    video.views && video.views > 0
+      ? ((totalInteractions / video.views) * 100).toFixed(1)
+      : '0.0';
 
-  // Determine playable direct video source
-  const directVideoSource =
-    dynamicStreamUrl ||
-    video.previewVideoUrl ||
-    (isDirect ? video.url : getFallbackVideoForCategory(video.category));
+  const statusConfig = {
+    published: {
+      km: 'បានបង្ហោះផ្លូវការ',
+      en: 'Published',
+      color: 'bg-emerald-500/15 text-emerald-300 border-emerald-400/30',
+      dot: 'bg-emerald-400',
+    },
+    scheduled: {
+      km: 'គ្រោងបង្ហោះ',
+      en: 'Scheduled',
+      color: 'bg-amber-500/15 text-amber-300 border-amber-400/30',
+      dot: 'bg-amber-400',
+    },
+    draft: {
+      km: 'ព្រាងទុក',
+      en: 'Draft',
+      color: 'bg-slate-500/15 text-slate-300 border-slate-400/30',
+      dot: 'bg-slate-400',
+    },
+  }[video.status || 'published'];
 
-  // Determine embed URL
-  const ytId = getYouTubeId(video.url);
-  const effectiveEmbedUrl = isYouTube
-    ? (video.embedUrl || (ytId ? `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0` : ''))
-    : (video.embedUrl || getFacebookEmbedUrl(video.url, true));
+  const thumbnailSrc =
+    video.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1000';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-xl overflow-y-auto">
-      <div className="bg-slate-900/95 backdrop-blur-2xl rounded-3xl max-w-4xl w-full max-h-[96vh] flex flex-col shadow-2xl border border-white/15 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 text-white">
-        {/* Header bar */}
-        <div className="px-4 sm:px-5 py-3 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md shrink-0">
+      <div className="bg-slate-900/95 backdrop-blur-2xl rounded-3xl max-w-4xl w-full max-h-[94vh] flex flex-col shadow-2xl border border-white/15 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 text-white">
+        
+        {/* Header Bar */}
+        <div className="px-4 sm:px-6 py-3.5 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-2 min-w-0 pr-2">
-            <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-indigo-600 text-white uppercase tracking-wider shadow-sm border border-indigo-400/30 shrink-0">
+            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-600 text-white uppercase tracking-wider shadow-sm border border-indigo-400/30 shrink-0">
               {video.platform}
             </span>
-            <span className="text-xs font-semibold text-indigo-300 bg-indigo-500/15 border border-indigo-400/20 px-2.5 py-0.5 rounded-lg shrink-0">
+            <span className="text-xs font-semibold text-indigo-300 bg-indigo-500/15 border border-indigo-400/20 px-2.5 py-1 rounded-lg shrink-0">
               {video.category}
             </span>
-            <span className="text-xs text-slate-300 hidden md:inline truncate max-w-xs font-medium">
-              {video.title}
+            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border inline-flex items-center gap-1.5 ${statusConfig.color} shrink-0`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
+              <span>{lang === 'km' ? statusConfig.km : statusConfig.en}</span>
             </span>
           </div>
 
-          {/* Mode Switcher & Controls */}
+          {/* Header Controls */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Player Mode Switch Tabs */}
-            <div className="flex items-center bg-slate-950/80 p-0.5 rounded-xl border border-white/10 text-[11px]">
-              {!isGalleryOnly && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPlayerMode('embed');
-                      setIframeError(false);
-                    }}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                      playerMode === 'embed'
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                    title={lang === 'km' ? 'ចាក់វីដេអូពីប្រភពដើម (Facebook / YouTube)' : 'Play original video (Facebook / YouTube)'}
-                  >
-                    <Globe className="w-3.5 h-3.5" />
-                    <span>{isYouTube ? 'YouTube' : 'Facebook Video'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setPlayerMode('in-app')}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                      playerMode === 'in-app'
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                    title={lang === 'km' ? 'ចាក់វីដេអូទម្រង់ In-App Player (HD Stream)' : 'Play in In-App Player'}
-                  >
-                    <Film className="w-3.5 h-3.5" />
-                    <span>{lang === 'km' ? 'ចាក់ក្នុង App' : 'In-App'}</span>
-                  </button>
-                </>
-              )}
-
-              {/* Gallery Mode Tab Button */}
-              {hasImages && (
+            {/* Media Toggle tabs if images exist */}
+            {hasImages && (
+              <div className="flex items-center bg-slate-950/80 p-0.5 rounded-xl border border-white/10 text-xs">
                 <button
                   type="button"
-                  onClick={() => setPlayerMode('gallery')}
+                  onClick={() => setActiveMediaView('thumbnail')}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                    playerMode === 'gallery'
+                    activeMediaView === 'thumbnail'
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'text-slate-400 hover:text-white'
                   }`}
-                  title={lang === 'km' ? 'មើលផ្ទាំងរូបភាព' : 'View photo gallery'}
+                >
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  <span>{lang === 'km' ? 'រូបភាពគម្រប' : 'Cover Thumbnail'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveMediaView('gallery')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                    activeMediaView === 'gallery'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
                 >
                   <Images className="w-3.5 h-3.5 text-amber-300" />
                   <span>
@@ -197,8 +147,8 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
                       : `Photos (${video.images?.length || 0})`}
                   </span>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Favorite button */}
             <button
@@ -218,7 +168,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+              className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
               title="បិទ (Close)"
             >
               <X className="w-5 h-5" />
@@ -226,152 +176,105 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
           </div>
         </div>
 
-        {/* Video / Gallery Player Container */}
-        <div className="relative aspect-video w-full bg-black flex items-center justify-center overflow-hidden shrink-0">
-          {/* 1. Official Embed Player (Facebook Video or YouTube) */}
-          {playerMode === 'embed' && (
-            <div className="relative w-full h-full bg-black flex items-center justify-center">
-              {!iframeError ? (
-                <>
-                  <iframe
-                    key={`embed-${video.id}`}
-                    src={effectiveEmbedUrl}
-                    title={video.title}
-                    className="w-full h-full border-0"
-                    scrolling="no"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                    onError={() => setIframeError(true)}
-                  />
-                  {isFacebook && (
-                    <div className="absolute top-3 left-3 pointer-events-none opacity-75 hover:opacity-100 transition-opacity">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold bg-blue-950/85 text-blue-200 border border-blue-400/30 backdrop-blur-md shadow-md">
-                        <Globe className="w-3 h-3 text-blue-400" />
-                        <span>Facebook Video Player</span>
-                      </span>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="p-6 text-center text-white space-y-3">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center mx-auto border border-amber-400/30">
-                    <AlertCircle className="w-6 h-6" />
-                  </div>
-                  <p className="text-sm text-slate-300 max-w-md mx-auto">
-                    {lang === 'km'
-                      ? 'ផ្ទាំងចាក់ Facebook អាចត្រូវបានរារាំងដោយសារភាពឯកជន ឬ Cookie។ អ្នកអាចប្តូរទៅចាក់តាម In-App Player ឬបើកមើលលើ Facebook ដោយផ្ទាល់។'
-                      : 'Facebook video player could not be embedded directly due to privacy settings.'}
-                  </p>
-                  <div className="flex items-center justify-center gap-3 pt-2">
+        {/* Unified Scrollable Container: Thumbnail & Content Details scroll together smoothly */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          {/* Media Showcase: High-Definition Thumbnail or Photo Gallery */}
+          <div className="relative aspect-video max-h-[380px] sm:max-h-[440px] w-full bg-slate-950 flex items-center justify-center overflow-hidden border-b border-white/10">
+            {activeMediaView === 'thumbnail' ? (
+              <div className="relative w-full h-full flex items-center justify-center bg-slate-950 group">
+                <img
+                  src={thumbnailSrc}
+                  alt={video.title}
+                  className="w-full h-full object-contain"
+                />
+
+                {/* Badge Overlay */}
+                <div className="absolute top-3 left-3 flex items-center gap-2 pointer-events-none">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-slate-950/85 text-indigo-300 border border-indigo-400/30 backdrop-blur-md shadow-md">
+                    <ImageIcon className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>{lang === 'km' ? 'រូបភាពតំណាងមាតិកា (Thumbnail HD)' : 'Content Thumbnail HD'}</span>
+                  </span>
+                </div>
+
+                {/* Top-Right Image Controls */}
+                <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                  <a
+                    href={thumbnailSrc}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-900 text-white border border-white/20 backdrop-blur-md transition-all shadow-md"
+                    title={lang === 'km' ? 'បើករូបភាពទំហំធំពេញលេញ' : 'Open original image in new tab'}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+
+                {/* Bottom Quick Bar with Direct Platform Link */}
+                <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-auto">
+                  {hasImages && (
                     <button
                       type="button"
-                      onClick={() => setPlayerMode('in-app')}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md transition-all"
+                      onClick={() => setActiveMediaView('gallery')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950/90 hover:bg-indigo-900/90 text-amber-300 border border-amber-400/30 text-xs font-bold backdrop-blur-md shadow-lg transition-all cursor-pointer"
                     >
-                      <Film className="w-4 h-4" />
-                      <span>{lang === 'km' ? 'ចាក់តាម In-App Player' : 'Play In-App HD'}</span>
+                      <Images className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{lang === 'km' ? `មើលផ្ទាំងរូបភាព (${num(video.images?.length || 0)})` : `View Photos (${video.images?.length || 0})`}</span>
                     </button>
-                    <a
-                      href={cleanFacebookUrl(video.url)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 transition-all"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      <span>{lang === 'km' ? 'បើកលើ Facebook ផ្ទាល់' : 'Open on Facebook'}</span>
-                    </a>
-                  </div>
+                  )}
+
+                  <a
+                    href={cleanFacebookUrl(video.url || OFFICIAL_PAGE_INFO.officialUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all border border-indigo-400/30 hover:scale-105"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>
+                      {video.platform === 'facebook'
+                        ? (lang === 'km' ? 'បើកមើលលើ Facebook' : 'Open on Facebook')
+                        : (lang === 'km' ? 'បើកមើលលើ YouTube' : 'Open on YouTube')}
+                    </span>
+                  </a>
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* 2. In-App Video Player (Plays directly with native controls) */}
-          {playerMode === 'in-app' && (
-            <div className="relative w-full h-full bg-black flex items-center justify-center">
-              <video
-                key={`in-app-${video.id}`}
-                src={directVideoSource}
-                poster={video.thumbnail}
-                controls
-                autoPlay
-                playsInline
-                loop
-                className="w-full h-full object-contain"
-                onError={() => {
-                  console.warn('In-app video source error, falling back to embed');
-                  setPlayerMode('embed');
-                }}
-              >
-                Your browser does not support the video tag.
-              </video>
-              <div className="absolute top-3 left-3 pointer-events-none">
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold bg-indigo-950/85 text-indigo-200 border border-indigo-400/30 backdrop-blur-md shadow-md">
-                  <Sparkles className="w-3 h-3 text-indigo-400" />
-                  <span>HD 1080p • In-App Player</span>
-                </span>
               </div>
-            </div>
-          )}
+            ) : (
+              /* Photo Gallery Slideshow */
+              <PhotoGalleryPlayer
+                images={video.images || []}
+                title={video.title}
+                initialIndex={selectedGalleryIndex}
+                lang={lang}
+                onImageChange={setSelectedGalleryIndex}
+              />
+            )}
+          </div>
 
-          {/* 3. Photo Gallery Player */}
-          {playerMode === 'gallery' && (
-            <PhotoGalleryPlayer
-              images={video.images || []}
-              title={video.title}
-              initialIndex={selectedGalleryIndex}
-              lang={lang}
-              onImageChange={setSelectedGalleryIndex}
-            />
-          )}
-        </div>
-
-        {/* Video Information & Actions */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
+          {/* Content Details Body (ព័ត៌មានលម្អិតបន្ថែមអំពីមាតិកា) */}
+          <div className="p-4 sm:p-6 space-y-5">
+          
+          {/* Main Title & Action Bar */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-            <div className="flex-1">
-              <h2 className="text-lg sm:text-xl font-bold text-white leading-snug">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg sm:text-2xl font-bold text-white leading-snug tracking-tight">
                 {video.title}
               </h2>
               {video.titleEn && (
-                <p className="text-xs text-slate-400 mt-0.5 italic">
+                <p className="text-xs sm:text-sm text-slate-400 mt-1 font-medium">
                   {video.titleEn}
                 </p>
               )}
-
-              {/* Meta tags & date */}
-              <div className="flex items-center gap-4 mt-2.5 text-xs text-slate-400 flex-wrap">
-                <span className="flex items-center gap-1 font-medium text-slate-200">
-                  <Eye className="w-4 h-4 text-indigo-400" />
-                  {num(formatCompactNumber(video.views))} {lang === 'km' ? 'ទស្សនា' : 'views'}
-                </span>
-                <span className="flex items-center gap-1 font-medium text-slate-200">
-                  <ThumbsUp className="w-4 h-4 text-indigo-400" />
-                  {num(formatCompactNumber(video.likes))} {lang === 'km' ? 'Likes' : 'likes'}
-                </span>
-                <span className="flex items-center gap-1 text-slate-400">
-                  <Calendar className="w-4 h-4 text-slate-400" />
-                  {num(video.publishDate)}
-                </span>
-                {video.duration && (
-                  <span className="flex items-center gap-1 text-slate-400 font-mono">
-                    <Clock className="w-4 h-4 text-slate-400" />
-                    {video.duration}
-                  </span>
-                )}
-              </div>
             </div>
 
-            {/* Quick action buttons */}
+            {/* Quick Action Buttons */}
             <div className="flex items-center gap-2 shrink-0 flex-wrap">
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-200 bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl transition-colors"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-slate-200 bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl transition-colors cursor-pointer"
                 title="ចម្លងតំណភ្ជាប់ (Copy link)"
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copied ? (lang === 'km' ? 'បានចម្លង' : 'Copied') : (lang === 'km' ? 'ចម្លង Link' : 'Copy Link')}</span>
+                <span>{copied ? (lang === 'km' ? 'បានចម្លង!' : 'Copied!') : (lang === 'km' ? 'ចម្លង Link' : 'Copy Link')}</span>
               </button>
 
               <button
@@ -380,46 +283,214 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
                   onClose();
                   onEdit(video);
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-200 bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl transition-colors"
-                title="កែសម្រួលព័ត៌មានវីដេអូ"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-slate-200 bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl transition-colors cursor-pointer"
+                title="កែសម្រួលព័ត៌មានមាតិកា"
               >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>{lang === 'km' ? 'កែសម្រួល' : 'Edit'}</span>
+                <Edit3 className="w-3.5 h-3.5 text-indigo-400" />
+                <span>{lang === 'km' ? 'កែសម្រួល' : 'Edit Details'}</span>
               </button>
 
               <a
-                href={video.url || OFFICIAL_PAGE_INFO.officialUrl}
+                href={cleanFacebookUrl(video.url || OFFICIAL_PAGE_INFO.officialUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-lg shadow-indigo-600/25 transition-all border border-indigo-400/20 hover:scale-105"
-                title="បើកមើលលើ Facebook / YouTube ផ្លូវការ"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-lg shadow-indigo-600/25 transition-all border border-indigo-400/25 hover:scale-105"
+                title="បើកមើលលើប្រភពដើម"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span>{lang === 'km' ? 'បើកលើ Facebook' : 'Open Source'}</span>
+                <span>
+                  {video.platform === 'facebook'
+                    ? (lang === 'km' ? 'បើកលើ Facebook' : 'Open on Facebook')
+                    : (lang === 'km' ? 'បើកលើ YouTube' : 'Open on YouTube')}
+                </span>
               </a>
             </div>
           </div>
 
-          {/* Description */}
-          <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
-            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-              {lang === 'km' ? 'ខ្លឹមសារសង្ខេប / ការពិពណ៌នា' : 'Overview & Description'}
-            </h4>
-            <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
-              {video.description || (lang === 'km' ? 'មិនមានការពិពណ៌នាបន្ថែម។' : 'No description provided.')}
-            </p>
-            {video.notes && (
-              <div className="mt-3 pt-3 border-t border-white/10 text-xs text-slate-400">
-                <span className="font-semibold text-slate-200">{lang === 'km' ? 'កំណត់ចំណាំអ្នកផលិត៖ ' : 'Creator Notes: '}</span>
-                {video.notes}
+          {/* Key Metrics & Performance Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 shrink-0">
+                <Eye className="w-5 h-5" />
               </div>
-            )}
+              <div>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  {lang === 'km' ? 'ចំនួនទស្សនា' : 'Total Views'}
+                </p>
+                <p className="text-base font-bold text-white font-mono">
+                  {num(formatCompactNumber(video.views))}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-rose-500/15 text-rose-400 shrink-0">
+                <ThumbsUp className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  {lang === 'km' ? 'ការចូលចិត្ត (Likes)' : 'Likes'}
+                </p>
+                <p className="text-base font-bold text-white font-mono">
+                  {num(formatCompactNumber(video.likes))}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-blue-500/15 text-blue-400 shrink-0">
+                <Share2 className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  {lang === 'km' ? 'ចែករំលែក (Shares)' : 'Shares'}
+                </p>
+                <p className="text-base font-bold text-white font-mono">
+                  {num(formatCompactNumber(video.shares))}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 shrink-0">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  {lang === 'km' ? 'អត្រាអន្តរកម្ម' : 'Engagement'}
+                </p>
+                <p className="text-base font-bold text-white font-mono">
+                  {num(engagementRate)}%
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Overview / Description Section */}
+          <div className="bg-white/5 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-white/10 space-y-2">
+            <div className="flex items-center gap-2 text-indigo-400">
+              <Info className="w-4 h-4" />
+              <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                {lang === 'km' ? 'ខ្លឹមសារសង្ខេប និងការពិពណ៌នាមាតិកា' : 'Overview & Description'}
+              </h4>
+            </div>
+            <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line pt-1">
+              {video.description || (lang === 'km' ? 'មិនមានការពិពណ៌នាបន្ថែមសម្រាប់មាតិកានេះទេ។' : 'No description provided.')}
+            </p>
+          </div>
+
+          {/* Creator Notes & Production Insights */}
+          {video.notes && (
+            <div className="bg-indigo-950/30 border border-indigo-500/20 p-4 rounded-2xl space-y-1.5">
+              <div className="flex items-center gap-2 text-indigo-300 text-xs font-bold uppercase tracking-wider">
+                <Bookmark className="w-3.5 h-3.5 text-indigo-400" />
+                <span>{lang === 'km' ? 'កំណត់ចំណាំអ្នកផលិត (Creator Notes)' : 'Creator Notes & Insights'}</span>
+              </div>
+              <p className="text-xs sm:text-sm text-indigo-200 leading-relaxed">
+                {video.notes}
+              </p>
+            </div>
+          )}
+
+          {/* Technical Details & Production Checklist */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            
+            {/* Metadata info */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-2.5">
+              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                <span>{lang === 'km' ? 'ព័ត៌មានបច្ចេកទេស និងកាលបរិច្ឆេទ' : 'Technical & Publishing Info'}</span>
+              </h4>
+              <div className="space-y-2 text-xs divide-y divide-white/5 pt-1">
+                <div className="flex items-center justify-between text-slate-300 pt-1.5">
+                  <span className="text-slate-400">{lang === 'km' ? 'កាលបរិច្ឆេទបង្ហោះ' : 'Publish Date'}:</span>
+                  <span className="font-semibold font-mono text-white">{num(video.publishDate)}</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-300 pt-1.5">
+                  <span className="text-slate-400">{lang === 'km' ? 'ប្រភពផ្សាយ' : 'Platform'}:</span>
+                  <span className="font-semibold capitalize text-indigo-300">{video.platform}</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-300 pt-1.5">
+                  <span className="text-slate-400">{lang === 'km' ? 'ប្រភេទមាតិកា' : 'Category'}:</span>
+                  <span className="font-semibold text-white">{video.category}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Production Checklist */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-2.5">
+              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                <span>{lang === 'km' ? 'បញ្ជីត្រួតពិនិត្យការផលិត (Production Checklist)' : 'Production Checklist'}</span>
+              </h4>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <div className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs ${
+                  video.creatorChecklist?.script
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                    : 'bg-white/5 border-white/10 text-slate-400'
+                }`}>
+                  {video.creatorChecklist?.script ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-slate-500 shrink-0" />
+                  )}
+                  <div className="min-w-0 truncate font-medium">
+                    {lang === 'km' ? 'ស្គ្រីបអត្ថបទ' : 'Script'}
+                  </div>
+                </div>
+
+                <div className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs ${
+                  video.creatorChecklist?.voiceover
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                    : 'bg-white/5 border-white/10 text-slate-400'
+                }`}>
+                  {video.creatorChecklist?.voiceover ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-slate-500 shrink-0" />
+                  )}
+                  <div className="min-w-0 truncate font-medium">
+                    {lang === 'km' ? 'សំឡេងអធិប្បាយ' : 'Voiceover'}
+                  </div>
+                </div>
+
+                <div className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs ${
+                  video.creatorChecklist?.thumbnailDone
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                    : 'bg-white/5 border-white/10 text-slate-400'
+                }`}>
+                  {video.creatorChecklist?.thumbnailDone ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-slate-500 shrink-0" />
+                  )}
+                  <div className="min-w-0 truncate font-medium">
+                    {lang === 'km' ? 'រូបភាពគម្រប (Thumbnail)' : 'Thumbnail'}
+                  </div>
+                </div>
+
+                <div className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs ${
+                  video.creatorChecklist?.subtitles
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                    : 'bg-white/5 border-white/10 text-slate-400'
+                }`}>
+                  {video.creatorChecklist?.subtitles ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-slate-500 shrink-0" />
+                  )}
+                  <div className="min-w-0 truncate font-medium">
+                    {lang === 'km' ? 'ចំណងជើងរត់' : 'Subtitles'}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Attached Photo Album / Gallery Strip */}
           {hasImages && (
-            <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 space-y-3">
-              <div className="flex items-center justify-between">
+            <div className="bg-white/5 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-white/10 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 rounded-lg bg-indigo-600/30 text-indigo-300 border border-indigo-400/20">
                     <Images className="w-4 h-4" />
@@ -432,8 +503,8 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
                     </h4>
                     <p className="text-[11px] text-slate-400">
                       {lang === 'km'
-                        ? 'ចុចលើរូបភាពណាមួយដើម្បីពង្រីកមើលក្នុងផ្ទាំង Slideshow ខាងលើ'
-                        : 'Click any photo to view full size in slideshow player above'}
+                        ? 'ចុចលើរូបភាពណាមួយដើម្បីបើកមើលទំហំធំពេញលេញ'
+                        : 'Click any photo to open full-size gallery view'}
                     </p>
                   </div>
                 </div>
@@ -442,12 +513,12 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
                   type="button"
                   onClick={() => {
                     setSelectedGalleryIndex(0);
-                    setPlayerMode('gallery');
+                    setActiveMediaView('gallery');
                   }}
                   className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
                 >
                   <Images className="w-3.5 h-3.5" />
-                  <span>{lang === 'km' ? 'បើកផ្ទាំងរូបភាព' : 'Open Gallery'}</span>
+                  <span>{lang === 'km' ? 'បើកផ្ទាំងរូបភាព Slideshow' : 'Open Slideshow'}</span>
                 </button>
               </div>
 
@@ -459,7 +530,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
                     type="button"
                     onClick={() => {
                       setSelectedGalleryIndex(idx);
-                      setPlayerMode('gallery');
+                      setActiveMediaView('gallery');
                     }}
                     className="group relative aspect-square rounded-xl overflow-hidden border border-white/10 hover:border-indigo-400 hover:ring-2 hover:ring-indigo-400/40 transition-all bg-slate-950 focus:outline-hidden cursor-pointer"
                   >
@@ -481,8 +552,8 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
 
           {/* Tags */}
           {video.tags && video.tags.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs text-slate-400 font-medium">{lang === 'km' ? 'ស្លាក៖' : 'Tags:'}</span>
+            <div className="flex items-center gap-1.5 flex-wrap pt-1">
+              <span className="text-xs text-slate-400 font-medium">{lang === 'km' ? 'ស្លាកសម្គាល់៖' : 'Tags:'}</span>
               {video.tags.map((tag, i) => (
                 <span
                   key={i}
@@ -493,6 +564,8 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
               ))}
             </div>
           )}
+        </div>
+        {/* End Unified Scrollable Container */}
         </div>
       </div>
     </div>
