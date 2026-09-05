@@ -25,6 +25,9 @@ import {
   Info,
   ChevronLeft,
   ChevronRight,
+  Play,
+  Pause,
+  ArrowUp,
 } from 'lucide-react';
 import { VideoItem } from '../types/video';
 import {
@@ -63,6 +66,12 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
   const [activeMediaView, setActiveMediaView] = useState<'thumbnail' | 'gallery'>('thumbnail');
   const [selectedGalleryIndex, setSelectedGalleryIndex] = useState(0);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [isAutoSlide, setIsAutoSlide] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
+  const [slideProgress, setSlideProgress] = useState(0);
+  const [isReadingScrolled, setIsReadingScrolled] = useState(false);
+  const [showPiP, setShowPiP] = useState(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
 
   const num = (n: number | string) => (lang === 'km' ? toKhmerNumerals(n) : String(n));
@@ -91,17 +100,62 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
   // Reset slide index when video ID changes
   useEffect(() => {
     setSlideIndex(0);
+    setSlideProgress(0);
   }, [video.id]);
 
   const goToNextSlide = useCallback(() => {
     if (allSlideImages.length <= 1) return;
     setSlideIndex((prev) => (prev + 1) % allSlideImages.length);
+    setSlideProgress(0);
   }, [allSlideImages.length]);
 
   const goToPrevSlide = useCallback(() => {
     if (allSlideImages.length <= 1) return;
     setSlideIndex((prev) => (prev === 0 ? allSlideImages.length - 1 : prev - 1));
+    setSlideProgress(0);
   }, [allSlideImages.length]);
+
+  // Auto-Slide Timer: automatically transitions slides every 4s when reading, pauses on hover
+  useEffect(() => {
+    if (!hasImages || !isAutoSlide || isHovered || activeMediaView !== 'thumbnail') {
+      setSlideProgress(0);
+      return;
+    }
+
+    const intervalTime = 4000;
+    const stepTime = 50;
+    const progressStep = (stepTime / intervalTime) * 100;
+
+    const timer = setInterval(() => {
+      setSlideProgress((prev) => {
+        if (prev >= 100) {
+          goToNextSlide();
+          return 0;
+        }
+        return prev + progressStep;
+      });
+    }, stepTime);
+
+    return () => clearInterval(timer);
+  }, [hasImages, isAutoSlide, isHovered, activeMediaView, goToNextSlide]);
+
+  // Track scroll position in modal: when reading text/article below, show floating slide preview
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      // If scrolled past 220px, user is reading the text/article details below
+      setIsReadingScrolled(el.scrollTop > 220);
+    };
+
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Keyboard navigation for slides
   useEffect(() => {
@@ -176,7 +230,7 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-xl overflow-y-auto">
-      <div className="bg-slate-900/95 backdrop-blur-2xl rounded-3xl max-w-4xl w-full max-h-[94vh] flex flex-col shadow-2xl border border-white/15 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 text-white">
+      <div className="relative bg-slate-900/95 backdrop-blur-2xl rounded-3xl max-w-4xl w-full max-h-[94vh] flex flex-col shadow-2xl border border-white/15 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 text-white">
         
         {/* Header Bar */}
         <div className="px-4 sm:px-6 py-3.5 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md shrink-0">
@@ -274,7 +328,7 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
         </div>
 
         {/* Unified Scrollable Container: Thumbnail & Content Details scroll together smoothly */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden">
           {/* Media Showcase: High-Definition Thumbnail or Photo Gallery */}
           <div className="relative aspect-video max-h-[380px] sm:max-h-[440px] w-full bg-slate-950 flex items-center justify-center overflow-hidden border-b border-white/10 select-none">
             {activeMediaView === 'thumbnail' ? (
@@ -282,12 +336,15 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
                 className="relative w-full h-full flex items-center justify-center bg-slate-950 group"
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
               >
                 <img
                   key={currentSlideImage}
                   src={currentSlideImage}
                   alt={`${video.title} - Slide ${slideIndex + 1}`}
-                  className="w-full h-full object-contain animate-in fade-in duration-200"
+                  className="w-full h-full object-contain animate-in fade-in duration-300 transition-all select-none"
+                  loading="eager"
                 />
 
                 {/* Left Slide Arrow */}
@@ -320,8 +377,8 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
                   </button>
                 )}
 
-                {/* Badge Overlay */}
-                <div className="absolute top-3 left-3 flex items-center gap-2 pointer-events-none z-20">
+                {/* Badge Overlay with Auto-Slide Toggle */}
+                <div className="absolute top-3 left-3 flex items-center gap-2 pointer-events-auto z-20 flex-wrap">
                   {hasImages ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-slate-950/90 text-indigo-300 border border-indigo-400/30 backdrop-blur-md shadow-md">
                       <Images className="w-3.5 h-3.5 text-indigo-400" />
@@ -336,6 +393,40 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
                       <ImageIcon className="w-3.5 h-3.5 text-indigo-400" />
                       <span>{lang === 'km' ? 'រូបភាពតំណាងមាតិកា (Thumbnail HD)' : 'Content Thumbnail HD'}</span>
                     </span>
+                  )}
+
+                  {/* Auto-Slide Toggle Button */}
+                  {hasImages && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsAutoSlide(!isAutoSlide);
+                        setSlideProgress(0);
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold backdrop-blur-md border transition-all cursor-pointer shadow-md ${
+                        isAutoSlide
+                          ? 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-400/40 shadow-indigo-600/20'
+                          : 'bg-slate-950/90 hover:bg-slate-900 text-slate-300 border-white/20'
+                      }`}
+                      title={
+                        isAutoSlide
+                          ? (lang === 'km' ? 'ចុចដើម្បីផ្អាក Auto Slide' : 'Click to pause Auto Slide')
+                          : (lang === 'km' ? 'ចុចដើម្បីបើកដំណើរការ Auto Slide' : 'Click to start Auto Slide')
+                      }
+                    >
+                      {isAutoSlide ? (
+                        <>
+                          <Pause className="w-3 h-3 text-amber-300" />
+                          <span>{lang === 'km' ? 'Auto Slide: កំពុងរត់' : 'Auto: ON'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3 h-3 text-indigo-400" />
+                          <span>{lang === 'km' ? 'Auto Slide: បានផ្អាក' : 'Auto: OFF'}</span>
+                        </>
+                      )}
+                    </button>
                   )}
                 </div>
 
@@ -371,6 +462,7 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
                         onClick={(e) => {
                           e.stopPropagation();
                           setSlideIndex(idx);
+                          setSlideProgress(0);
                         }}
                         className={`h-2 rounded-full transition-all cursor-pointer ${
                           idx === slideIndex
@@ -399,6 +491,16 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
                     </span>
                   </a>
                 </div>
+
+                {/* Auto Slide Linear Progress Bar */}
+                {hasImages && isAutoSlide && (
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 z-20 overflow-hidden pointer-events-none">
+                    <div
+                      className="h-full bg-indigo-500 transition-all duration-75 ease-linear"
+                      style={{ width: `${Math.min(100, Math.max(0, slideProgress))}%` }}
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               /* Photo Gallery Slideshow */
@@ -530,13 +632,87 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
           </div>
 
           {/* Overview / Description Section */}
-          <div className="bg-white/5 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-white/10 space-y-2">
-            <div className="flex items-center gap-2 text-indigo-400">
-              <Info className="w-4 h-4" />
-              <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-                {lang === 'km' ? 'ខ្លឹមសារសង្ខេប និងការពិពណ៌នាមាតិកា' : 'Overview & Description'}
-              </h4>
+          <div className="bg-white/5 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-white/10 space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap text-indigo-400">
+              <div className="flex items-center gap-2">
+                <Info className="w-4 h-4" />
+                <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                  {lang === 'km' ? 'ខ្លឹមសារសង្ខេប និងការពិពណ៌នាមាតិកា' : 'Overview & Description'}
+                </h4>
+              </div>
+
+              {/* Auto Slide Companion Info while reading */}
+              {hasImages && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAutoSlide(!isAutoSlide);
+                      setSlideProgress(0);
+                    }}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all cursor-pointer ${
+                      isAutoSlide
+                        ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/40 hover:bg-indigo-600/40'
+                        : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
+                    }`}
+                  >
+                    {isAutoSlide ? (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <Pause className="w-3 h-3 text-amber-300" />
+                        <span>
+                          {lang === 'km'
+                            ? `Auto Slide: រូបទី ${num(slideIndex + 1)}/${num(allSlideImages.length)}`
+                            : `Auto Slide: ${slideIndex + 1}/${allSlideImages.length}`}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-3 h-3 text-indigo-400" />
+                        <span>{lang === 'km' ? 'បើក Auto Slide ពេលអាន' : 'Enable Auto Slide'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* Reading Slides Carousel Strip while reading text */}
+            {hasImages && (
+              <div className="pt-0.5 pb-1">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-white/10">
+                  {allSlideImages.map((imgUrl, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setSlideIndex(idx);
+                        setSlideProgress(0);
+                      }}
+                      className={`relative shrink-0 w-16 h-11 sm:w-20 sm:h-13 rounded-lg overflow-hidden border transition-all cursor-pointer ${
+                        idx === slideIndex
+                          ? 'border-indigo-400 ring-2 ring-indigo-500/50 scale-105 shadow-md shadow-indigo-600/30'
+                          : 'border-white/15 opacity-60 hover:opacity-100 hover:scale-102'
+                      }`}
+                      title={lang === 'km' ? `ស្លាយទី ${idx + 1}` : `Slide ${idx + 1}`}
+                    >
+                      <img
+                        src={imgUrl}
+                        alt={`Slide thumbnail ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute bottom-0.5 right-0.5 text-[8px] font-bold font-mono px-1 py-0.2 rounded bg-black/85 text-white">
+                        {num(idx + 1)}
+                      </span>
+                      {idx === slideIndex && isAutoSlide && (
+                        <div className="absolute top-1 left-1 w-2 h-2 rounded-full bg-emerald-400 border border-slate-900 shadow-xs animate-pulse" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line pt-1">
               {video.description || (lang === 'km' ? 'មិនមានការពិពណ៌នាបន្ថែមសម្រាប់មាតិកានេះទេ។' : 'No description provided.')}
             </p>
@@ -740,6 +916,109 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
           )}
         </div>
         {/* End Unified Scrollable Container */}
+
+        {/* Floating Mini Auto-Slide Preview when reading article */}
+        {isReadingScrolled && hasImages && showPiP && (
+          <div className="absolute bottom-4 right-4 z-40 bg-slate-900/95 border border-indigo-500/40 rounded-2xl p-2.5 shadow-2xl backdrop-blur-xl max-w-[260px] sm:max-w-[280px] w-full animate-in slide-in-from-bottom-4 duration-200 text-white">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-300">
+                <span className={`w-2 h-2 rounded-full ${isAutoSlide && !isHovered ? 'bg-emerald-400 animate-ping' : 'bg-slate-400'}`} />
+                <span>{lang === 'km' ? 'Auto Slide ពេលអានអត្ថបទ' : 'Auto Slide Reading'}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={scrollToTop}
+                  className="p-1 px-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-[10px] font-medium flex items-center gap-1 cursor-pointer transition-colors"
+                  title={lang === 'km' ? 'រមូរឡើងលើដើម្បីមើលរូបធំ' : 'Scroll to top to view main stage'}
+                >
+                  <ArrowUp className="w-3 h-3 text-indigo-400" />
+                  <span>{lang === 'km' ? 'មើលធំ' : 'Top'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPiP(false)}
+                  className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white cursor-pointer transition-colors"
+                  title={lang === 'km' ? 'បិទផ្ទាំងតូច' : 'Dismiss mini-player'}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Mini Slide Image with auto transition */}
+            <div
+              className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-950 border border-white/10 group cursor-pointer"
+              onClick={scrollToTop}
+            >
+              <img
+                key={`pip-${currentSlideImage}`}
+                src={currentSlideImage}
+                alt="Mini slide preview"
+                className="w-full h-full object-cover animate-in fade-in duration-200 select-none"
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                <Maximize2 className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" />
+              </div>
+              <span className="absolute bottom-1.5 left-1.5 text-[9px] font-mono font-bold bg-black/80 px-1.5 py-0.5 rounded text-white border border-white/10">
+                {num(slideIndex + 1)} / {num(allSlideImages.length)}
+              </span>
+              {isAutoSlide && (
+                <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-indigo-600/90 text-[9px] font-bold text-white shadow-xs">
+                  Auto
+                </div>
+              )}
+            </div>
+
+            {/* Mini Controls */}
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    goToPrevSlide();
+                    setSlideProgress(0);
+                  }}
+                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 cursor-pointer transition-colors"
+                  title={lang === 'km' ? 'ស្លាយមុន' : 'Previous'}
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAutoSlide(!isAutoSlide);
+                    setSlideProgress(0);
+                  }}
+                  className={`p-1.5 px-2 rounded-lg flex items-center gap-1 text-[11px] font-semibold cursor-pointer transition-colors ${
+                    isAutoSlide
+                      ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                      : 'bg-white/10 hover:bg-white/15 text-slate-200'
+                  }`}
+                  title={isAutoSlide ? 'ផ្អាក Auto' : 'បន្ត Auto'}
+                >
+                  {isAutoSlide ? <Pause className="w-3 h-3 text-amber-300" /> : <Play className="w-3 h-3 text-indigo-400" />}
+                  <span>{isAutoSlide ? (lang === 'km' ? 'ផ្អាក' : 'Pause') : (lang === 'km' ? 'បន្ត' : 'Play')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    goToNextSlide();
+                    setSlideProgress(0);
+                  }}
+                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 cursor-pointer transition-colors"
+                  title={lang === 'km' ? 'ស្លាយបន្ទាប់' : 'Next'}
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <span className="text-[10px] text-slate-400 font-medium font-mono">
+                {lang === 'km' ? 'កំពុងអាន' : 'Reading'}
+              </span>
+            </div>
+          </div>
+        )}
         </div>
       </div>
     </div>
