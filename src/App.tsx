@@ -684,18 +684,20 @@ export default function App() {
       />
 
       {/* Theater / Video Player Modal */}
-      <PlayerModal
-        video={playerVideo}
-        onClose={() => setPlayerVideo(null)}
-        onEdit={(v) => {
-          requireAdminAuth(() => {
-            setPlayerVideo(null);
-            setVideoModal({ isOpen: true, video: v, defaultTab: 'manual' });
-          });
-        }}
-        onToggleFavorite={handleToggleFavorite}
-        lang={lang}
-      />
+      {playerVideo && (
+        <PlayerModal
+          video={playerVideo}
+          onClose={() => setPlayerVideo(null)}
+          onEdit={(v) => {
+            requireAdminAuth(() => {
+              setPlayerVideo(null);
+              setVideoModal({ isOpen: true, video: v, defaultTab: 'manual' });
+            });
+          }}
+          onToggleFavorite={handleToggleFavorite}
+          lang={lang}
+        />
+      )}
 
       {/* Admin Passcode Authentication Modal */}
       <AdminAuthModal
