@@ -10,6 +10,7 @@ import { PlayerModal } from './components/PlayerModal';
 import { DataManagementModal } from './components/DataManagementModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { AdminAuthModal } from './components/AdminAuthModal';
+import { ChannelStatsModal } from './components/ChannelStatsModal';
 import { VideoItem, ViewMode, SortOption, VideoStatus } from './types/video';
 import { INITIAL_VIDEOS, OFFICIAL_PAGE_INFO } from './data/initialVideos';
 import { Video, Plus, SearchX, CheckCircle, ExternalLink, Cloud } from 'lucide-react';
@@ -22,6 +23,10 @@ import {
   signInWithGoogle,
   logOut,
   auth,
+  subscribeToAdminPasscode,
+  updateAdminPasscodeInCloud,
+  subscribeToChannelStats,
+  updateChannelStatsInCloud,
 } from './services/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
@@ -99,6 +104,36 @@ export default function App() {
       safeStorage.set(ADMIN_STORAGE_KEY, String(isAdminMode));
     }
   }, [isAdminMode, isAdminAuthenticated]);
+
+  // Real-time Cloud listener for Admin Passcode across all browsers/devices
+  useEffect(() => {
+    const unsubscribe = subscribeToAdminPasscode((cloudPasscode) => {
+      if (cloudPasscode && cloudPasscode.trim().length >= 4) {
+        setAdminPasscode(cloudPasscode.trim());
+        safeStorage.set(ADMIN_PASSCODE_KEY, cloudPasscode.trim());
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Facebook Channel Followers & Likes state & real-time sync
+  const [channelStats, setChannelStats] = useState<{ followers: string; likes: string }>({
+    followers: OFFICIAL_PAGE_INFO.followers,
+    likes: OFFICIAL_PAGE_INFO.likes,
+  });
+  const [channelStatsModalOpen, setChannelStatsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToChannelStats((cloudStats) => {
+      if (cloudStats) {
+        setChannelStats({
+          followers: cloudStats.followers || OFFICIAL_PAGE_INFO.followers,
+          likes: cloudStats.likes || OFFICIAL_PAGE_INFO.likes,
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Batch selection state
   const [batchSelectMode, setBatchSelectMode] = useState(false);
@@ -490,14 +525,45 @@ export default function App() {
     }
   };
 
-  const handleUpdatePasscode = (newPasscode: string) => {
-    setAdminPasscode(newPasscode);
-    localStorage.setItem(ADMIN_PASSCODE_KEY, newPasscode);
-    showToast(
-      lang === 'km'
-        ? 'លេខកូដសម្ងាត់ថ្មីត្រូវបានផ្លាស់ប្តូរជោគជ័យ!'
-        : 'Passcode updated successfully!'
-    );
+  const handleUpdatePasscode = async (newPasscode: string) => {
+    const trimmed = newPasscode.trim();
+    setAdminPasscode(trimmed);
+    safeStorage.set(ADMIN_PASSCODE_KEY, trimmed);
+
+    try {
+      await updateAdminPasscodeInCloud(trimmed);
+      showToast(
+        lang === 'km'
+          ? 'លេខកូដសម្ងាត់ថ្មីត្រូវបានរក្សាទុកលើ Cloud និង Sync គ្រប់ឧបករណ៍ទាំងអស់!'
+          : 'Passcode updated and synced across all devices in Cloud!'
+      );
+    } catch (err) {
+      console.error('Failed to sync passcode to Cloud:', err);
+      showToast(
+        lang === 'km'
+          ? 'បានប្តូរក្នុងម៉ាស៊ីននេះ តែមានបញ្ហាក្នុងការ Sync ទៅកាន់ Cloud'
+          : 'Passcode updated locally, but failed to sync to Cloud'
+      );
+    }
+  };
+
+  const handleSaveChannelStats = async (newFollowers: string, newLikes: string) => {
+    setChannelStats({ followers: newFollowers, likes: newLikes });
+    try {
+      await updateChannelStatsInCloud({ followers: newFollowers, likes: newLikes });
+      showToast(
+        lang === 'km'
+          ? 'បានធ្វើបច្ចុប្បន្នភាពចំនួនអ្នកតាមដានលើ Cloud ជោគជ័យ!'
+          : 'Channel followers count synced to Cloud successfully!'
+      );
+    } catch (err) {
+      console.error('Failed to sync channel stats to Cloud:', err);
+      showToast(
+        lang === 'km'
+          ? 'មិនអាច Sync ចំនួនអ្នកតាមដានទៅកាន់ Cloud បានទេ'
+          : 'Failed to sync channel stats to Cloud'
+      );
+    }
   };
 
   return (
@@ -542,6 +608,10 @@ export default function App() {
         <ChannelHero
           onQuickCategory={(cat) => setSelectedCategory(cat)}
           lang={lang}
+          followers={channelStats.followers}
+          likes={channelStats.likes}
+          isAdminMode={isAdminMode && isAdminAuthenticated}
+          onEditStats={() => setChannelStatsModalOpen(true)}
         />
 
         {/* High-level stats summary */}
@@ -738,6 +808,16 @@ export default function App() {
         videos={videos}
         onImport={handleImportVideos}
         onReset={handleResetVideos}
+        lang={lang}
+      />
+
+      {/* Channel Stats (Followers & Likes) Edit / Sync Modal */}
+      <ChannelStatsModal
+        isOpen={channelStatsModalOpen}
+        onClose={() => setChannelStatsModalOpen(false)}
+        followers={channelStats.followers}
+        likes={channelStats.likes}
+        onSave={handleSaveChannelStats}
         lang={lang}
       />
 

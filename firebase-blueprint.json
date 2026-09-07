@@ -115,12 +115,20 @@
     },
     "AppSettings": {
       "title": "AppSettings",
-      "description": "Application settings including security and configuration",
+      "description": "Application settings including security and channel configuration",
       "type": "object",
       "properties": {
         "passcode": {
           "type": "string",
           "description": "Admin security PIN / passcode"
+        },
+        "followers": {
+          "type": "string",
+          "description": "Real-time synced Facebook followers count"
+        },
+        "likes": {
+          "type": "string",
+          "description": "Real-time synced Facebook likes count"
         },
         "updatedAt": {
           "type": "string",

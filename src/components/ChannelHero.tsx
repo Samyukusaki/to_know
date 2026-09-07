@@ -6,9 +6,20 @@ import { ChannelLogo } from './ChannelLogo';
 interface ChannelHeroProps {
   onQuickCategory: (category: string) => void;
   lang: 'km' | 'en';
+  followers?: string;
+  likes?: string;
+  isAdminMode?: boolean;
+  onEditStats?: () => void;
 }
 
-export const ChannelHero: React.FC<ChannelHeroProps> = ({ onQuickCategory, lang }) => {
+export const ChannelHero: React.FC<ChannelHeroProps> = ({
+  onQuickCategory,
+  lang,
+  followers = OFFICIAL_PAGE_INFO.followers,
+  likes = OFFICIAL_PAGE_INFO.likes,
+  isAdminMode = false,
+  onEditStats,
+}) => {
   return (
     <div className="relative overflow-hidden rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 text-white p-6 sm:p-8 mb-6 shadow-2xl group">
       {/* Background visual accents */}
@@ -39,19 +50,29 @@ export const ChannelHero: React.FC<ChannelHeroProps> = ({ onQuickCategory, lang 
               {OFFICIAL_PAGE_INFO.taglineKm}
             </p>
 
-            <div className="flex items-center gap-4 mt-3 text-xs text-slate-400">
+            <div className="flex items-center gap-3 sm:gap-4 mt-3 text-xs text-slate-400 flex-wrap">
               <span className="flex items-center gap-1.5">
                 <Users className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="text-slate-100 font-semibold">{OFFICIAL_PAGE_INFO.followers}</span> {lang === 'km' ? 'អ្នកតាមដាន' : 'followers'}
+                <span className="text-slate-100 font-semibold">{followers}</span>{' '}
+                {lang === 'km' ? 'អ្នកតាមដាន' : 'followers'}
               </span>
               <span className="flex items-center gap-1.5">
                 <ThumbsUp className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="text-slate-100 font-semibold">{OFFICIAL_PAGE_INFO.likes}</span> {lang === 'km' ? 'ចូលចិត្ត' : 'likes'}
+                <span className="text-slate-100 font-semibold">{likes}</span>{' '}
+                {lang === 'km' ? 'ចូលចិត្ត' : 'likes'}
               </span>
-              <span className="text-white/20 hidden sm:inline">|</span>
-              <span className="text-slate-400 font-mono text-[11px] hidden sm:inline">
-                ID: {OFFICIAL_PAGE_INFO.pageId}
-              </span>
+
+              {/* Admin Sync Button (Facebook ID is hidden) */}
+              {isAdminMode && onEditStats && (
+                <button
+                  id="hero-edit-stats-btn"
+                  onClick={onEditStats}
+                  className="px-2 py-0.5 rounded-md bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 text-[11px] font-medium transition-colors flex items-center gap-1"
+                  title={lang === 'km' ? 'កែសម្រួល ឬ Sync ចំនួនអ្នកតាមដាន' : 'Edit or Sync Followers Count'}
+                >
+                  <span>{lang === 'km' ? 'Sync Facebook' : 'Sync FB'}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

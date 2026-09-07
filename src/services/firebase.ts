@@ -306,3 +306,63 @@ export async function updateAdminPasscodeInCloud(newPasscode: string): Promise<v
   }
 }
 
+const CHANNEL_INFO_DOC_ID = 'channel_info';
+
+export interface ChannelStats {
+  followers: string;
+  likes: string;
+  updatedAt?: string;
+}
+
+/**
+ * Real-time listener for Channel/Facebook Followers & Likes across all devices
+ */
+export function subscribeToChannelStats(
+  onStatsChange: (stats: ChannelStats) => void
+): Unsubscribe {
+  try {
+    const docRef = doc(db, SETTINGS_COLLECTION, CHANNEL_INFO_DOC_ID);
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data) {
+            onStatsChange({
+              followers: data.followers || '12.4K',
+              likes: data.likes || '2.3K',
+              updatedAt: data.updatedAt,
+            });
+          }
+        }
+      },
+      (error) => {
+        console.warn('Firestore channel stats listener notice:', error);
+      }
+    );
+  } catch (error) {
+    console.warn('Failed to subscribe to channel stats in Firestore:', error);
+    return () => {};
+  }
+}
+
+/**
+ * Persist new Channel Stats (Followers / Likes) to Cloud Firestore
+ */
+export async function updateChannelStatsInCloud(stats: Partial<ChannelStats>): Promise<void> {
+  const docPath = `${SETTINGS_COLLECTION}/${CHANNEL_INFO_DOC_ID}`;
+  try {
+    const docRef = doc(db, SETTINGS_COLLECTION, CHANNEL_INFO_DOC_ID);
+    await setDoc(
+      docRef,
+      {
+        ...stats,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, docPath);
+  }
+}
+

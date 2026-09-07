@@ -58,13 +58,12 @@ service cloud.firestore {
       allow delete: if isValidId(videoId);
     }
 
-    // Application settings (e.g. security configuration & passcode sync)
+    // Application settings (e.g. security configuration, passcode sync, and channel stats)
     match /app_settings/{settingId} {
       allow read: if true;
       allow write: if isValidId(settingId) &&
-                    incoming().passcode is string &&
-                    incoming().passcode.size() >= 4 &&
-                    incoming().passcode.size() <= 64;
+                    ((settingId == 'security' && incoming().passcode is string && incoming().passcode.size() >= 4 && incoming().passcode.size() <= 64) ||
+                     (settingId != 'security'));
     }
   }
 }
