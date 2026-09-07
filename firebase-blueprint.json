@@ -13,23 +13,23 @@
           "type": "string",
           "description": "Title of the video in Khmer",
           "minLength": 1,
-          "maxLength": 200
+          "maxLength": 500
         },
         "titleEn": {
           "type": "string",
           "description": "Optional English title of the video",
-          "maxLength": 200
+          "maxLength": 500
         },
         "url": {
           "type": "string",
           "description": "URL of the video (Facebook, YouTube, direct MP4)",
           "minLength": 5,
-          "maxLength": 1000
+          "maxLength": 3000
         },
         "embedUrl": {
           "type": "string",
           "description": "Embeddable player URL",
-          "maxLength": 1000
+          "maxLength": 5000
         },
         "platform": {
           "type": "string",
@@ -41,15 +41,15 @@
         },
         "description": {
           "type": "string",
-          "maxLength": 5000
+          "maxLength": 10000
         },
         "thumbnail": {
           "type": "string",
-          "maxLength": 1000
+          "maxLength": 800000
         },
         "duration": {
           "type": "string",
-          "maxLength": 20
+          "maxLength": 50
         },
         "views": {
           "type": "number",
@@ -83,6 +83,7 @@
         },
         "previewVideoUrl": {
           "type": "string",
+          "maxLength": 5000,
           "description": "Direct extracted or uploaded video stream URL"
         },
         "tags": {
@@ -95,7 +96,7 @@
         },
         "notes": {
           "type": "string",
-          "maxLength": 2000
+          "maxLength": 5000
         },
         "creatorChecklist": {
           "type": "object",

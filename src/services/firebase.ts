@@ -76,14 +76,68 @@ export function handleFirestoreError(
 
 const VIDEOS_COLLECTION = 'videos';
 
-// Convert undefined fields to avoid Firestore errors
+// Convert undefined fields and sanitize values to avoid Firestore rule errors
 function cleanVideoPayload(video: VideoItem): Record<string, any> {
   const data: Record<string, any> = { ...video };
+
+  // Sanitize id: must be string matching ^[a-zA-Z0-9_\-]+$
+  if (!data.id || typeof data.id !== 'string' || !/^[a-zA-Z0-9_\-]+$/.test(data.id)) {
+    data.id = `tk-${Date.now()}`;
+  }
+
+  // Sanitize url: must not be empty or raw base64 data
+  if (
+    !data.url ||
+    typeof data.url !== 'string' ||
+    data.url.length < 5 ||
+    data.url.startsWith('data:') ||
+    data.url.startsWith('blob:')
+  ) {
+    data.url = 'https://www.facebook.com/share/1DpGT8ZZ7y/?mibextid=wwXIfr';
+  }
+
+  // Ensure title is present and valid string
+  if (!data.title || typeof data.title !== 'string') {
+    data.title = 'វីដេអូចំណេះដឹង នាំដឹង - To Know';
+  }
+
+  // Sanitize platform
+  const validPlatforms = ['facebook', 'youtube', 'direct', 'other'];
+  if (!validPlatforms.includes(data.platform)) {
+    data.platform = 'facebook';
+  }
+
+  // Sanitize category
+  const validCategories = [
+    'បច្ចេកវិទ្យា',
+    'វិទ្យាសាស្ត្រ',
+    'ចំណេះដឹងទូទៅ',
+    'ប្រវត្តិសាស្ត្រ',
+    'សុខភាព & ខួរក្បាល',
+    'គន្លឹះខ្លីៗ',
+  ];
+  if (!validCategories.includes(data.category)) {
+    data.category = 'ចំណេះដឹងទូទៅ';
+  }
+
+  // Sanitize status
+  const validStatuses = ['published', 'draft', 'scheduled'];
+  if (!validStatuses.includes(data.status)) {
+    data.status = 'published';
+  }
+
+  // If embedUrl is base64 or invalid, remove it
+  if (data.embedUrl && (data.embedUrl.startsWith('data:') || data.embedUrl.startsWith('blob:'))) {
+    delete data.embedUrl;
+  }
+
+  // Remove undefined or null properties
   Object.keys(data).forEach((key) => {
-    if (data[key] === undefined) {
+    if (data[key] === undefined || data[key] === null) {
       delete data[key];
     }
   });
+
   return data;
 }
 

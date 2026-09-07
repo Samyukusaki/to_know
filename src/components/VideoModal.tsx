@@ -32,6 +32,7 @@ import {
 } from '../utils/videoHelper';
 import { OFFICIAL_PAGE_INFO } from '../data/initialVideos';
 import { ImageGalleryManager } from './ImageGalleryManager';
+import { compressImageFile } from '../utils/imageCompressor';
 
 interface VideoModalProps {
   isOpen: boolean;
@@ -305,18 +306,26 @@ export const VideoModal: React.FC<VideoModalProps> = ({
     extractVideoFromUrl(url);
   };
 
-  // Image Upload handler (supports mobile camera or gallery)
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Image Upload handler (supports mobile camera or gallery) with compression
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setImageUploadName(file.name);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setThumbnail(reader.result);
+      try {
+        const compressed = await compressImageFile(file);
+        if (compressed) {
+          setThumbnail(compressed);
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('Failed to compress image:', err);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            setThumbnail(reader.result);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -364,11 +373,23 @@ export const VideoModal: React.FC<VideoModalProps> = ({
         ? 'gallery'
         : 'video';
 
-    // Clean URL if Facebook
-    const rawUrl = url.trim() || (images.length > 0 ? images[0] : OFFICIAL_PAGE_INFO.officialUrl);
-    const detected = detectPlatform(rawUrl);
-    const finalUrl = detected === 'facebook' ? cleanFacebookUrl(rawUrl) : rawUrl;
-    const embed = getEmbedUrl(finalUrl);
+    // Safe URL sanitization: never allow raw base64 data URLs to become videoItem.url!
+    const userUrl = url.trim();
+    const isUserUrlValid = userUrl.length >= 5 && (userUrl.startsWith('http://') || userUrl.startsWith('https://'));
+    const firstValidHttpImage = images.find(
+      (img) => img.startsWith('http') && !img.startsWith('data:') && !img.startsWith('blob:')
+    );
+
+    const safeUrl = isUserUrlValid
+      ? userUrl
+      : (firstValidHttpImage || OFFICIAL_PAGE_INFO.officialUrl);
+
+    const detected = detectPlatform(safeUrl);
+    const finalUrl = detected === 'facebook' ? cleanFacebookUrl(safeUrl) : safeUrl;
+    const rawEmbed = getEmbedUrl(finalUrl);
+    // Ensure embed is not a data/blob url
+    const embed = rawEmbed && !rawEmbed.startsWith('data:') && !rawEmbed.startsWith('blob:') ? rawEmbed : undefined;
+
     const tags = tagsInput
       .split(',')
       .map((t) => t.trim().replace(/^#/, ''))
@@ -388,7 +409,10 @@ export const VideoModal: React.FC<VideoModalProps> = ({
       titleEn: titleEn.trim() || undefined,
       url: finalUrl,
       embedUrl: embed,
-      previewVideoUrl: previewVideoUrl.trim() || editVideo?.previewVideoUrl || (detected === 'direct' ? finalUrl : undefined),
+      previewVideoUrl:
+        previewVideoUrl.trim() && !previewVideoUrl.startsWith('blob:')
+          ? previewVideoUrl.trim()
+          : editVideo?.previewVideoUrl || (detected === 'direct' ? finalUrl : undefined),
       platform: detected,
       mediaType: finalMediaType,
       images: finalImages,

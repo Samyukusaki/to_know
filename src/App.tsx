@@ -276,20 +276,32 @@ export default function App() {
 
   // Handlers with Cloud persistence
   const handleSaveVideo = async (videoData: VideoItem) => {
-    if (videoModal.video) {
-      // Edit
+    const isEdit = Boolean(videoModal.video);
+    // Optimistically update local state immediately
+    if (isEdit) {
       setVideos((prev) => prev.map((v) => (v.id === videoData.id ? videoData : v)));
-      showToast(lang === 'km' ? 'បានកែសម្រួលព័ត៌មានវីដេអូ និងរក្សាទុកលើ Cloud រួចរាល់!' : 'Video updated and saved to Cloud!');
     } else {
-      // Add
       setVideos((prev) => [videoData, ...prev]);
-      showToast(lang === 'km' ? 'បានបន្ថែមវីដេអូថ្មី និងរក្សាទុកលើ Cloud រួចរាល់!' : 'New video added and saved to Cloud!');
     }
+
     try {
       await saveVideoToCloud(videoData);
+      showToast(
+        lang === 'km'
+          ? isEdit
+            ? 'បានកែសម្រួលព័ត៌មាន និងរក្សាទុកលើ Cloud រួចរាល់!'
+            : 'បានបន្ថែមមាតិកាថ្មី និងរក្សាទុកលើ Cloud ដោយជោគជ័យ!'
+          : isEdit
+          ? 'Content updated and saved to Cloud!'
+          : 'New content added and saved to Cloud successfully!'
+      );
     } catch (e) {
-      console.error('Failed to sync video to Cloud', e);
-      showToast(lang === 'km' ? 'មានបញ្ហាក្នុងការរក្សាទុកលើ Cloud' : 'Failed to save to Cloud');
+      console.error('Failed to sync video to Cloud:', e);
+      showToast(
+        lang === 'km'
+          ? 'មិនអាចរក្សាទុកលើ Cloud បានទេ តែទិន្នន័យត្រូវបានរក្សាទុកក្នុងម៉ាស៊ីនរួចរាល់'
+          : 'Could not sync to Cloud, saved to local cache'
+      );
     }
   };
 

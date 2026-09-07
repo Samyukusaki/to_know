@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { PRESET_GALLERY_ALBUMS } from '../data/presetGalleries';
 import { toKhmerNumerals } from '../utils/videoHelper';
+import { compressMultipleImageFiles } from '../utils/imageCompressor';
 
 interface ImageGalleryManagerProps {
   images: string[];
@@ -49,8 +50,8 @@ export const ImageGalleryManager: React.FC<ImageGalleryManagerProps> = ({
     setTimeout(() => setStatusMessage(null), 3500);
   };
 
-  // 1. Direct Upload: Handle Multiple Files
-  const handleFilesSelected = (files: FileList | File[]) => {
+  // 1. Direct Upload: Handle Multiple Files with automatic client-side compression
+  const handleFilesSelected = async (files: FileList | File[]) => {
     const fileArray = Array.from(files).filter((f) => f.type.startsWith('image/'));
     if (fileArray.length === 0) {
       showStatus(lang === 'km' ? 'សូមជ្រើសរើសឯកសារដែលជារូបភាព (JPG, PNG, WEBP)' : 'Please select valid image files');
@@ -58,34 +59,28 @@ export const ImageGalleryManager: React.FC<ImageGalleryManagerProps> = ({
     }
 
     setIsProcessingFiles(true);
-    let loadedCount = 0;
-    const newResults: string[] = [];
-
-    fileArray.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          newResults.push(reader.result);
+    try {
+      const compressedImages = await compressMultipleImageFiles(fileArray);
+      if (compressedImages.length > 0) {
+        const updated = [...images, ...compressedImages];
+        onChange(updated);
+        // If no thumbnail set yet or using placeholder, set the first uploaded image as cover
+        if (!thumbnail || thumbnail.includes('unsplash.com/photo-1618005182384')) {
+          onSetThumbnail(updated[0]);
         }
-        loadedCount += 1;
-        if (loadedCount === fileArray.length) {
-          const updated = [...images, ...newResults];
-          onChange(updated);
-          // If no thumbnail set yet or using placeholder, set the first uploaded image as cover
-          if (!thumbnail || thumbnail.includes('unsplash.com/photo-1618005182384')) {
-            onSetThumbnail(updated[0]);
-          }
-          setIsProcessingFiles(false);
-          setActivePreviewIndex(images.length); // jump to newly added image
-          showStatus(
-            lang === 'km'
-              ? `បានបញ្ចូល ${num(newResults.length)} រូបភាពទៅក្នុង Slide ដោយជោគជ័យ!`
-              : `Added ${newResults.length} images to slide successfully!`
-          );
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+        setActivePreviewIndex(images.length); // jump to newly added image
+        showStatus(
+          lang === 'km'
+            ? `បានបញ្ចូល ${num(compressedImages.length)} រូបភាពទៅក្នុង Slide ដោយជោគជ័យ!`
+            : `Added ${compressedImages.length} images to slide successfully!`
+        );
+      }
+    } catch (err) {
+      console.error('Failed to compress images:', err);
+      showStatus(lang === 'km' ? 'មានបញ្ហាក្នុងការដំណើរការរូបភាព' : 'Error processing images');
+    } finally {
+      setIsProcessingFiles(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
