@@ -287,6 +287,16 @@ export const VideoModal: React.FC<VideoModalProps> = ({
     }
   }, [url]);
 
+  // Close on Escape key press
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   // Link auto-fill handler (Trigger manual re-extraction)
@@ -402,7 +412,12 @@ export const VideoModal: React.FC<VideoModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-xl overflow-y-auto">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-xl overflow-y-auto"
+    >
       <div className="bg-slate-900/95 backdrop-blur-2xl rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-white/15 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200 text-white">
         {/* Modal Header */}
         <div className="px-5 sm:px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md shrink-0">
@@ -430,8 +445,9 @@ export const VideoModal: React.FC<VideoModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
-            title="បិទ (Close)"
+            className="p-2 text-white hover:text-red-200 bg-white/10 hover:bg-red-500/30 border border-white/20 hover:border-red-400/50 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer ml-2 shrink-0"
+            title={lang === 'km' ? 'បិទផ្ទាំង (Close - Esc)' : 'Close (Esc)'}
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>

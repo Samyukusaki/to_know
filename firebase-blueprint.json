@@ -111,12 +111,31 @@
         }
       },
       "required": ["id", "title", "url", "platform", "category", "status"]
+    },
+    "AppSettings": {
+      "title": "AppSettings",
+      "description": "Application settings including security and configuration",
+      "type": "object",
+      "properties": {
+        "passcode": {
+          "type": "string",
+          "description": "Admin security PIN / passcode"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when settings were last updated"
+        }
+      }
     }
   },
   "firestore": {
     "/videos/{videoId}": {
       "schema": { "$ref": "#/entities/Video" },
       "description": "Collection of all To Know educational videos stored in the Cloud"
+    },
+    "/app_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/AppSettings" },
+      "description": "System settings and synchronized security configuration"
     }
   }
 }

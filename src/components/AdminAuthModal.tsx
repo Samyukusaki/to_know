@@ -58,6 +58,16 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
     }
   }, [isOpen, mode]);
 
+  // Close on Escape key press
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleKeypadPress = (val: string) => {
@@ -159,7 +169,7 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
   return (
     <div
       id="admin-auth-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -175,7 +185,7 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
         {/* Modal Header */}
         <div className="relative px-6 pt-6 pb-4 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-400 shadow-inner">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-400 shadow-inner shrink-0">
               <KeyRound className="w-5 h-5" />
             </div>
             <div>
@@ -203,7 +213,9 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 transition-colors"
+            className="p-2 text-white hover:text-red-200 bg-white/10 hover:bg-red-500/30 border border-white/20 hover:border-red-400/50 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer ml-2 shrink-0"
+            title={lang === 'km' ? 'បិទផ្ទាំង (Close - Esc)' : 'Close (Esc)'}
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -318,20 +330,18 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
                 </button>
               </div>
 
-              {/* Default PIN Hint */}
-              <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-400/20 flex items-start gap-2 text-[11px] text-indigo-300">
-                <Sparkles className="w-4 h-4 shrink-0 text-indigo-400 mt-0.5" />
-                <div>
-                  <span className="font-bold">
-                    {lang === 'km' ? 'លេខកូដសម្ងាត់ដើម (Default PIN): ' : 'Default PIN: '}
-                  </span>
-                  <code className="px-1.5 py-0.5 rounded bg-indigo-950 border border-indigo-400/30 font-mono font-bold text-white">
-                    {currentPasscode === '123456' ? '123456' : '•••••• (ផ្ទាល់ខ្លួន)'}
-                  </code>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
+              {/* Cloud Security Indicator */}
+              <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-400/25 flex items-start gap-2.5 text-[11px] text-indigo-300">
+                <ShieldCheck className="w-4 h-4 shrink-0 text-indigo-400 mt-0.5" />
+                <div className="space-y-0.5">
+                  <div className="font-bold text-white flex items-center gap-1.5">
+                    <span>{lang === 'km' ? 'សុវត្ថិភាព Cloud Sync' : 'Cloud Sync Security'}</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
                     {lang === 'km'
-                      ? 'អ្នកអាចប្តូរលេខកូដនេះបាននៅផ្ទាំង "ប្តូរលេខកូដ"'
-                      : 'You can change this code anytime in the Change PIN tab'}
+                      ? 'លេខកូដសម្ងាត់ត្រូវបានការពារ និង Sync ដោយស្វ័យប្រវត្តិលើគ្រប់ Browser និងឧបករណ៍ទាំងអស់។'
+                      : 'The security passcode is synchronized in real time across all browsers and devices.'}
                   </p>
                 </div>
               </div>

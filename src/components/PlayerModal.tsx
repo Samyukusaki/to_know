@@ -103,6 +103,15 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
     setSlideProgress(0);
   }, [video.id]);
 
+  // Close modal on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const goToNextSlide = useCallback(() => {
     if (allSlideImages.length <= 1) return;
     setSlideIndex((prev) => (prev + 1) % allSlideImages.length);
@@ -229,46 +238,139 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
   }[video.status || 'published'];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-xl overflow-y-auto">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-xl overflow-y-auto"
+    >
       <div className="relative bg-slate-900/95 backdrop-blur-2xl rounded-3xl max-w-4xl w-full max-h-[94vh] flex flex-col shadow-2xl border border-white/15 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 text-white">
         
-        {/* Header Bar */}
-        <div className="px-4 sm:px-6 py-3.5 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md shrink-0">
-          <div className="flex items-center gap-2 min-w-0 pr-2">
-            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-600 text-white uppercase tracking-wider shadow-sm border border-indigo-400/30 shrink-0">
-              {video.platform}
-            </span>
-            <span className="text-xs font-semibold text-indigo-300 bg-indigo-500/15 border border-indigo-400/20 px-2.5 py-1 rounded-lg shrink-0">
-              {video.category}
-            </span>
-            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border inline-flex items-center gap-1.5 ${statusConfig.color} shrink-0`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
-              <span>{lang === 'km' ? statusConfig.km : statusConfig.en}</span>
-            </span>
-            {hasImages && (
-              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-amber-500/15 border border-amber-400/30 px-2.5 py-1 rounded-lg shrink-0">
-                <Images className="w-3 h-3 text-amber-400" />
-                <span>{num(allSlideImages.length)} {lang === 'km' ? 'ស្លាយរូប' : 'slides'}</span>
+        {/* Header Bar - Fully Responsive, Close Button ALWAYS Pinned & Prominent */}
+        <div className="border-b border-white/10 bg-white/5 backdrop-blur-md shrink-0">
+          {/* Main Top Row */}
+          <div className="px-3 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between gap-2">
+            {/* Left: Platform & Category Badges */}
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <span className="px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-bold bg-indigo-600 text-white uppercase tracking-wider shadow-sm border border-indigo-400/30 shrink-0">
+                {video.platform}
               </span>
-            )}
+              <span className="text-[11px] sm:text-xs font-semibold text-indigo-300 bg-indigo-500/15 border border-indigo-400/20 px-2 sm:px-2.5 py-1 rounded-lg truncate max-w-[120px] sm:max-w-[200px]">
+                {video.category}
+              </span>
+              <span className={`hidden sm:inline-flex text-[11px] font-semibold px-2.5 py-1 rounded-lg border items-center gap-1.5 ${statusConfig.color} shrink-0`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
+                <span>{lang === 'km' ? statusConfig.km : statusConfig.en}</span>
+              </span>
+              {hasImages && (
+                <span className="hidden md:inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-amber-500/15 border border-amber-400/30 px-2.5 py-1 rounded-lg shrink-0">
+                  <Images className="w-3 h-3 text-amber-400" />
+                  <span>{num(allSlideImages.length)} {lang === 'km' ? 'ស្លាយរូប' : 'slides'}</span>
+                </span>
+              )}
+            </div>
+
+            {/* Right: Actions + Always-Visible Pinned Close Button (X) */}
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              {/* Media Toggle tabs on Desktop */}
+              {hasImages && (
+                <div className="hidden sm:flex items-center bg-slate-950/80 p-0.5 rounded-xl border border-white/10 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setActiveMediaView('thumbnail')}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                      activeMediaView === 'thumbnail'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>{lang === 'km' ? 'ស្លាយ Thumbnail' : 'Slides'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedGalleryIndex(slideIndex);
+                      setActiveMediaView('gallery');
+                    }}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                      activeMediaView === 'gallery'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Images className="w-3.5 h-3.5 text-amber-300" />
+                    <span>{lang === 'km' ? 'Slideshow' : 'Player'}</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Edit button */}
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onEdit(video);
+                }}
+                className="p-1.5 sm:p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+                title={lang === 'km' ? 'កែសម្រួលមាតិកា (Edit)' : 'Edit content'}
+              >
+                <Edit3 className="w-4 h-4" />
+              </button>
+
+              {/* Favorite button */}
+              <button
+                type="button"
+                onClick={() => onToggleFavorite(video.id)}
+                className={`p-1.5 sm:p-2 rounded-xl transition-colors cursor-pointer ${
+                  video.isFavorite
+                    ? 'text-amber-400 bg-amber-500/20 border border-amber-400/30'
+                    : 'text-slate-400 hover:text-white hover:bg-white/10'
+                }`}
+                title={video.isFavorite ? 'ដកចេញពីចូលចិត្ត' : 'ដាក់ជាចូលចិត្ត'}
+              >
+                <Star className={`w-4 h-4 ${video.isFavorite ? 'fill-current' : ''}`} />
+              </button>
+
+              {/* Prominent, Pinned Close Button (X) - Never Overflowed */}
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-2 text-white hover:text-red-200 bg-white/10 hover:bg-red-500/30 border border-white/20 hover:border-red-400/50 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer ml-1"
+                title={lang === 'km' ? 'បិទផ្ទាំង (Close - Esc)' : 'Close (Esc)'}
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
-          {/* Header Controls */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* Media Toggle tabs if images exist */}
+          {/* Mobile Secondary Bar (for status and slide media toggle) */}
+          <div className="sm:hidden px-3 py-1.5 border-t border-white/5 bg-black/20 flex items-center justify-between text-xs gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${statusConfig.color} shrink-0`}>
+                <span className={`w-1 h-1 rounded-full ${statusConfig.dot}`} />
+                <span>{lang === 'km' ? statusConfig.km : statusConfig.en}</span>
+              </span>
+              {hasImages && (
+                <span className="text-[10px] font-bold text-amber-300 bg-amber-500/15 border border-amber-400/30 px-2 py-0.5 rounded-md shrink-0">
+                  {num(allSlideImages.length)} {lang === 'km' ? 'ស្លាយ' : 'slides'}
+                </span>
+              )}
+            </div>
+
             {hasImages && (
-              <div className="flex items-center bg-slate-950/80 p-0.5 rounded-xl border border-white/10 text-xs">
+              <div className="flex items-center bg-slate-950/80 p-0.5 rounded-lg border border-white/10 text-[11px]">
                 <button
                   type="button"
                   onClick={() => setActiveMediaView('thumbnail')}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                  className={`px-2 py-0.5 rounded font-semibold transition-all ${
                     activeMediaView === 'thumbnail'
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-400'
                   }`}
                 >
-                  <ImageIcon className="w-3.5 h-3.5" />
-                  <span>{lang === 'km' ? 'ស្លាយ Thumbnail' : 'Slides'}</span>
+                  {lang === 'km' ? 'ស្លាយ' : 'Slides'}
                 </button>
                 <button
                   type="button"
@@ -276,54 +378,16 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
                     setSelectedGalleryIndex(slideIndex);
                     setActiveMediaView('gallery');
                   }}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                  className={`px-2 py-0.5 rounded font-semibold transition-all ${
                     activeMediaView === 'gallery'
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-400'
                   }`}
                 >
-                  <Images className="w-3.5 h-3.5 text-amber-300" />
-                  <span>{lang === 'km' ? 'Slideshow' : 'Player'}</span>
+                  {lang === 'km' ? 'បញ្ចាំង' : 'Player'}
                 </button>
               </div>
             )}
-
-            {/* Edit button */}
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onEdit(video);
-              }}
-              className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
-              title={lang === 'km' ? 'កែសម្រួលមាតិកា (Edit)' : 'Edit content'}
-            >
-              <Edit3 className="w-4 h-4" />
-            </button>
-
-            {/* Favorite button */}
-            <button
-              type="button"
-              onClick={() => onToggleFavorite(video.id)}
-              className={`p-2 rounded-xl transition-colors cursor-pointer ${
-                video.isFavorite
-                  ? 'text-amber-400 bg-amber-500/20 border border-amber-400/30'
-                  : 'text-slate-400 hover:text-white hover:bg-white/10'
-              }`}
-              title={video.isFavorite ? 'ដកចេញពីចូលចិត្ត' : 'ដាក់ជាចូលចិត្ត'}
-            >
-              <Star className={`w-4 h-4 ${video.isFavorite ? 'fill-current' : ''}`} />
-            </button>
-
-            {/* Close button */}
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
-              title="បិទ (Close)"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
         </div>
 
@@ -475,8 +539,8 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
                   </div>
                 )}
 
-                {/* Bottom Quick Bar with Direct Platform Link */}
-                <div className="absolute bottom-3 right-3 flex items-center justify-between pointer-events-auto z-20">
+                {/* Bottom Quick Bar with Direct Platform Link - Desktop only to avoid overlapping dots on mobile */}
+                <div className="hidden sm:flex absolute bottom-3 right-3 items-center justify-between pointer-events-auto z-20">
                   <a
                     href={cleanFacebookUrl(video.url || OFFICIAL_PAGE_INFO.officialUrl)}
                     target="_blank"
@@ -914,12 +978,24 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
               ))}
             </div>
           )}
+
+          {/* Mobile Bottom Close Button - Convenient for reading all the way down */}
+          <div className="sm:hidden pt-3 pb-2 border-t border-white/10">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-3 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-98 text-white font-bold text-xs flex items-center justify-center gap-2 border border-white/20 shadow-lg transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4 text-slate-300" />
+              <span>{lang === 'km' ? 'បិទផ្ទាំងព័ត៌មាន (Close)' : 'Close Details'}</span>
+            </button>
+          </div>
         </div>
         {/* End Unified Scrollable Container */}
 
-        {/* Floating Mini Auto-Slide Preview when reading article */}
+        {/* Floating Mini Auto-Slide Preview when reading article - Visible only on tablet/desktop (sm+) so it NEVER overlaps or blocks article text on mobile */}
         {isReadingScrolled && hasImages && showPiP && (
-          <div className="absolute bottom-4 right-4 z-40 bg-slate-900/95 border border-indigo-500/40 rounded-2xl p-2.5 shadow-2xl backdrop-blur-xl max-w-[260px] sm:max-w-[280px] w-full animate-in slide-in-from-bottom-4 duration-200 text-white">
+          <div className="hidden sm:block absolute bottom-4 right-4 z-40 bg-slate-900/95 border border-indigo-500/40 rounded-2xl p-2.5 shadow-2xl backdrop-blur-xl max-w-[260px] sm:max-w-[280px] w-full animate-in slide-in-from-bottom-4 duration-200 text-white">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
               <div className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-300">
                 <span className={`w-2 h-2 rounded-full ${isAutoSlide && !isHovered ? 'bg-emerald-400 animate-ping' : 'bg-slate-400'}`} />

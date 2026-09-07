@@ -200,3 +200,55 @@ export async function signInWithGoogle() {
 export async function logOut() {
   return await signOut(auth);
 }
+
+const SETTINGS_COLLECTION = 'app_settings';
+const SECURITY_DOC_ID = 'security';
+
+/**
+ * Real-time listener for Admin Passcode across all devices & browsers
+ */
+export function subscribeToAdminPasscode(
+  onPasscodeChange: (passcode: string) => void
+): Unsubscribe {
+  try {
+    const docRef = doc(db, SETTINGS_COLLECTION, SECURITY_DOC_ID);
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data && typeof data.passcode === 'string' && data.passcode.trim()) {
+            onPasscodeChange(data.passcode.trim());
+          }
+        }
+      },
+      (error) => {
+        console.warn('Firestore security settings listener notice:', error);
+      }
+    );
+  } catch (error) {
+    console.warn('Failed to subscribe to security passcode in Firestore:', error);
+    return () => {};
+  }
+}
+
+/**
+ * Persist new Admin Passcode to Cloud Firestore so all devices update immediately
+ */
+export async function updateAdminPasscodeInCloud(newPasscode: string): Promise<void> {
+  const docPath = `${SETTINGS_COLLECTION}/${SECURITY_DOC_ID}`;
+  try {
+    const docRef = doc(db, SETTINGS_COLLECTION, SECURITY_DOC_ID);
+    await setDoc(
+      docRef,
+      {
+        passcode: newPasscode.trim(),
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, docPath);
+  }
+}
+
