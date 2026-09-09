@@ -3,9 +3,6 @@ import {
   X,
   ExternalLink,
   Star,
-  ThumbsUp,
-  Eye,
-  Share2,
   Copy,
   Check,
   Edit3,
@@ -19,7 +16,6 @@ import {
   Subtitles,
   CheckCircle2,
   Circle,
-  TrendingUp,
   Bookmark,
   Sparkles,
   Info,
@@ -208,13 +204,6 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
     setCopiedImage(true);
     setTimeout(() => setCopiedImage(false), 2000);
   };
-
-  // Engagement calculation
-  const totalInteractions = (video.likes || 0) + (video.shares || 0);
-  const engagementRate =
-    video.views && video.views > 0
-      ? ((totalInteractions / video.views) * 100).toFixed(1)
-      : '0.0';
 
   const statusConfig = {
     published: {
@@ -633,65 +622,6 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
                     : (lang === 'km' ? 'បើកលើ YouTube' : 'Open on YouTube')}
                 </span>
               </a>
-            </div>
-          </div>
-
-          {/* Key Metrics & Performance Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 shrink-0">
-                <Eye className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[11px] text-slate-400 font-medium">
-                  {lang === 'km' ? 'ចំនួនទស្សនា' : 'Total Views'}
-                </p>
-                <p className="text-base font-bold text-white font-mono">
-                  {num(formatCompactNumber(video.views))}
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-rose-500/15 text-rose-400 shrink-0">
-                <ThumbsUp className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[11px] text-slate-400 font-medium">
-                  {lang === 'km' ? 'ការចូលចិត្ត (Likes)' : 'Likes'}
-                </p>
-                <p className="text-base font-bold text-white font-mono">
-                  {num(formatCompactNumber(video.likes))}
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-blue-500/15 text-blue-400 shrink-0">
-                <Share2 className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[11px] text-slate-400 font-medium">
-                  {lang === 'km' ? 'ចែករំលែក (Shares)' : 'Shares'}
-                </p>
-                <p className="text-base font-bold text-white font-mono">
-                  {num(formatCompactNumber(video.shares))}
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 shrink-0">
-                <TrendingUp className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[11px] text-slate-400 font-medium">
-                  {lang === 'km' ? 'អត្រាអន្តរកម្ម' : 'Engagement'}
-                </p>
-                <p className="text-base font-bold text-white font-mono">
-                  {num(engagementRate)}%
-                </p>
-              </div>
             </div>
           </div>
 
