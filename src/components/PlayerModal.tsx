@@ -10,14 +10,8 @@ import {
   Images,
   Maximize2,
   Minimize2,
-  FileText,
-  Mic,
   Image as ImageIcon,
-  Subtitles,
-  CheckCircle2,
-  Circle,
   Bookmark,
-  Sparkles,
   Info,
   ChevronLeft,
   ChevronRight,
@@ -634,78 +628,7 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
                   {lang === 'km' ? 'ខ្លឹមសារសង្ខេប និងការពិពណ៌នាមាតិកា' : 'Overview & Description'}
                 </h4>
               </div>
-
-              {/* Auto Slide Companion Info while reading */}
-              {hasImages && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAutoSlide(!isAutoSlide);
-                      setSlideProgress(0);
-                    }}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all cursor-pointer ${
-                      isAutoSlide
-                        ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/40 hover:bg-indigo-600/40'
-                        : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
-                    }`}
-                  >
-                    {isAutoSlide ? (
-                      <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        <Pause className="w-3 h-3 text-amber-300" />
-                        <span>
-                          {lang === 'km'
-                            ? `Auto Slide: រូបទី ${num(slideIndex + 1)}/${num(allSlideImages.length)}`
-                            : `Auto Slide: ${slideIndex + 1}/${allSlideImages.length}`}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-3 h-3 text-indigo-400" />
-                        <span>{lang === 'km' ? 'បើក Auto Slide ពេលអាន' : 'Enable Auto Slide'}</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
             </div>
-
-            {/* Reading Slides Carousel Strip while reading text */}
-            {hasImages && (
-              <div className="pt-0.5 pb-1">
-                <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-white/10">
-                  {allSlideImages.map((imgUrl, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        setSlideIndex(idx);
-                        setSlideProgress(0);
-                      }}
-                      className={`relative shrink-0 w-16 h-11 sm:w-20 sm:h-13 rounded-lg overflow-hidden border transition-all cursor-pointer ${
-                        idx === slideIndex
-                          ? 'border-indigo-400 ring-2 ring-indigo-500/50 scale-105 shadow-md shadow-indigo-600/30'
-                          : 'border-white/15 opacity-60 hover:opacity-100 hover:scale-102'
-                      }`}
-                      title={lang === 'km' ? `ស្លាយទី ${idx + 1}` : `Slide ${idx + 1}`}
-                    >
-                      <img
-                        src={imgUrl}
-                        alt={`Slide thumbnail ${idx + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <span className="absolute bottom-0.5 right-0.5 text-[8px] font-bold font-mono px-1 py-0.2 rounded bg-black/85 text-white">
-                        {num(idx + 1)}
-                      </span>
-                      {idx === slideIndex && isAutoSlide && (
-                        <div className="absolute top-1 left-1 w-2 h-2 rounded-full bg-emerald-400 border border-slate-900 shadow-xs animate-pulse" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line pt-1">
               {video.description || (lang === 'km' ? 'មិនមានការពិពណ៌នាបន្ថែមសម្រាប់មាតិកានេះទេ។' : 'No description provided.')}
@@ -725,97 +648,24 @@ const PlayerModalContent: React.FC<PlayerModalContentProps> = ({
             </div>
           )}
 
-          {/* Technical Details & Production Checklist */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-            
-            {/* Metadata info */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-2.5">
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                <span>{lang === 'km' ? 'ព័ត៌មានបច្ចេកទេស និងកាលបរិច្ឆេទ' : 'Technical & Publishing Info'}</span>
-              </h4>
-              <div className="space-y-2 text-xs divide-y divide-white/5 pt-1">
-                <div className="flex items-center justify-between text-slate-300 pt-1.5">
-                  <span className="text-slate-400">{lang === 'km' ? 'កាលបរិច្ឆេទបង្ហោះ' : 'Publish Date'}:</span>
-                  <span className="font-semibold font-mono text-white">{num(video.publishDate)}</span>
-                </div>
-                <div className="flex items-center justify-between text-slate-300 pt-1.5">
-                  <span className="text-slate-400">{lang === 'km' ? 'ប្រភពផ្សាយ' : 'Platform'}:</span>
-                  <span className="font-semibold capitalize text-indigo-300">{video.platform}</span>
-                </div>
-                <div className="flex items-center justify-between text-slate-300 pt-1.5">
-                  <span className="text-slate-400">{lang === 'km' ? 'ប្រភេទមាតិកា' : 'Category'}:</span>
-                  <span className="font-semibold text-white">{video.category}</span>
-                </div>
+          {/* Technical Details & Publishing Info */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-2.5">
+            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+              <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+              <span>{lang === 'km' ? 'ព័ត៌មានបច្ចេកទេស និងកាលបរិច្ឆេទ' : 'Technical & Publishing Info'}</span>
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-xs">
+              <div className="flex items-center justify-between sm:flex-col sm:items-start p-2.5 rounded-xl bg-white/5 border border-white/5">
+                <span className="text-slate-400">{lang === 'km' ? 'កាលបរិច្ឆេទបង្ហោះ' : 'Publish Date'}:</span>
+                <span className="font-semibold font-mono text-white sm:mt-1">{num(video.publishDate)}</span>
               </div>
-            </div>
-
-            {/* Production Checklist */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-2.5">
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                <span>{lang === 'km' ? 'បញ្ជីត្រួតពិនិត្យការផលិត (Production Checklist)' : 'Production Checklist'}</span>
-              </h4>
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <div className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs ${
-                  video.creatorChecklist?.script
-                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-                    : 'bg-white/5 border-white/10 text-slate-400'
-                }`}>
-                  {video.creatorChecklist?.script ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  ) : (
-                    <Circle className="w-4 h-4 text-slate-500 shrink-0" />
-                  )}
-                  <div className="min-w-0 truncate font-medium">
-                    {lang === 'km' ? 'ស្គ្រីបអត្ថបទ' : 'Script'}
-                  </div>
-                </div>
-
-                <div className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs ${
-                  video.creatorChecklist?.voiceover
-                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-                    : 'bg-white/5 border-white/10 text-slate-400'
-                }`}>
-                  {video.creatorChecklist?.voiceover ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  ) : (
-                    <Circle className="w-4 h-4 text-slate-500 shrink-0" />
-                  )}
-                  <div className="min-w-0 truncate font-medium">
-                    {lang === 'km' ? 'សំឡេងអធិប្បាយ' : 'Voiceover'}
-                  </div>
-                </div>
-
-                <div className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs ${
-                  video.creatorChecklist?.thumbnailDone
-                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-                    : 'bg-white/5 border-white/10 text-slate-400'
-                }`}>
-                  {video.creatorChecklist?.thumbnailDone ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  ) : (
-                    <Circle className="w-4 h-4 text-slate-500 shrink-0" />
-                  )}
-                  <div className="min-w-0 truncate font-medium">
-                    {lang === 'km' ? 'រូបភាពគម្រប (Thumbnail)' : 'Thumbnail'}
-                  </div>
-                </div>
-
-                <div className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs ${
-                  video.creatorChecklist?.subtitles
-                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-                    : 'bg-white/5 border-white/10 text-slate-400'
-                }`}>
-                  {video.creatorChecklist?.subtitles ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  ) : (
-                    <Circle className="w-4 h-4 text-slate-500 shrink-0" />
-                  )}
-                  <div className="min-w-0 truncate font-medium">
-                    {lang === 'km' ? 'ចំណងជើងរត់' : 'Subtitles'}
-                  </div>
-                </div>
+              <div className="flex items-center justify-between sm:flex-col sm:items-start p-2.5 rounded-xl bg-white/5 border border-white/5">
+                <span className="text-slate-400">{lang === 'km' ? 'ប្រភពផ្សាយ' : 'Platform'}:</span>
+                <span className="font-semibold capitalize text-indigo-300 sm:mt-1">{video.platform}</span>
+              </div>
+              <div className="flex items-center justify-between sm:flex-col sm:items-start p-2.5 rounded-xl bg-white/5 border border-white/5">
+                <span className="text-slate-400">{lang === 'km' ? 'ប្រភេទមាតិកា' : 'Category'}:</span>
+                <span className="font-semibold text-white sm:mt-1">{video.category}</span>
               </div>
             </div>
           </div>
