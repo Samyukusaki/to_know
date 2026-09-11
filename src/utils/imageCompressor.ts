@@ -5,9 +5,9 @@
  */
 export async function compressImageFile(
   file: File,
-  maxWidth = 1200,
-  maxHeight = 1200,
-  quality = 0.75
+  maxWidth = 960,
+  maxHeight = 960,
+  quality = 0.70
 ): Promise<string> {
   return new Promise((resolve) => {
     // If already very small (< 60KB), read directly

@@ -83,9 +83,11 @@ function cleanVideoPayload(video: VideoItem): Record<string, any> {
   // Sanitize id: must be string matching ^[a-zA-Z0-9_\-]+$
   if (!data.id || typeof data.id !== 'string' || !/^[a-zA-Z0-9_\-]+$/.test(data.id)) {
     data.id = `tk-${Date.now()}`;
+  } else if (data.id.length > 120) {
+    data.id = data.id.substring(0, 120);
   }
 
-  // Sanitize url: must not be empty or raw base64 data
+  // Sanitize url: must not be empty or raw base64/blob data
   if (
     !data.url ||
     typeof data.url !== 'string' ||
@@ -94,11 +96,19 @@ function cleanVideoPayload(video: VideoItem): Record<string, any> {
     data.url.startsWith('blob:')
   ) {
     data.url = 'https://www.facebook.com/share/1DpGT8ZZ7y/?mibextid=wwXIfr';
+  } else if (data.url.length > 7500) {
+    data.url = data.url.substring(0, 7500);
   }
 
   // Ensure title is present and valid string
   if (!data.title || typeof data.title !== 'string') {
     data.title = 'វីដេអូចំណេះដឹង នាំដឹង - To Know';
+  } else {
+    data.title = data.title.trim().substring(0, 1900);
+  }
+
+  if (data.titleEn && typeof data.titleEn === 'string') {
+    data.titleEn = data.titleEn.trim().substring(0, 1900);
   }
 
   // Sanitize platform
@@ -126,9 +136,84 @@ function cleanVideoPayload(video: VideoItem): Record<string, any> {
     data.status = 'published';
   }
 
-  // If embedUrl is base64 or invalid, remove it
-  if (data.embedUrl && (data.embedUrl.startsWith('data:') || data.embedUrl.startsWith('blob:'))) {
-    delete data.embedUrl;
+  // Sanitize previewVideoUrl
+  if (data.previewVideoUrl) {
+    if (
+      typeof data.previewVideoUrl !== 'string' ||
+      data.previewVideoUrl.startsWith('blob:') ||
+      data.previewVideoUrl.length > 22000
+    ) {
+      delete data.previewVideoUrl;
+    }
+  }
+
+  // If embedUrl is base64, blob, or too long, remove it
+  if (data.embedUrl) {
+    if (
+      typeof data.embedUrl !== 'string' ||
+      data.embedUrl.startsWith('data:') ||
+      data.embedUrl.startsWith('blob:') ||
+      data.embedUrl.length > 11000
+    ) {
+      delete data.embedUrl;
+    }
+  }
+
+  // Sanitize thumbnail
+  if (data.thumbnail) {
+    if (
+      typeof data.thumbnail !== 'string' ||
+      data.thumbnail.startsWith('blob:') ||
+      data.thumbnail.length > 900000
+    ) {
+      data.thumbnail = 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80';
+    }
+  }
+
+  // Sanitize images array
+  if (Array.isArray(data.images)) {
+    data.images = data.images.filter(
+      (img) => typeof img === 'string' && img.trim().length > 0 && !img.startsWith('blob:')
+    );
+    if (data.images.length > 20) {
+      data.images = data.images.slice(0, 20);
+    }
+  } else {
+    data.images = data.thumbnail ? [data.thumbnail] : [];
+  }
+
+  // Sanitize description
+  if (data.description && typeof data.description === 'string') {
+    data.description = data.description.trim().substring(0, 28000);
+  }
+
+  // Sanitize numbers
+  data.views = Math.max(0, Number(data.views) || 0);
+  data.likes = Math.max(0, Number(data.likes) || 0);
+  data.shares = Math.max(0, Number(data.shares) || 0);
+
+  // Sanitize publishDate
+  if (!data.publishDate || typeof data.publishDate !== 'string') {
+    data.publishDate = new Date().toISOString().split('T')[0];
+  } else if (data.publishDate.length > 50) {
+    data.publishDate = data.publishDate.substring(0, 50);
+  }
+
+  // Sanitize tags
+  if (Array.isArray(data.tags)) {
+    data.tags = data.tags.filter((t) => typeof t === 'string' && t.trim().length > 0).slice(0, 50);
+  } else {
+    data.tags = ['នាំដឹង', 'ចំណេះដឹង', 'បច្ចេកវិទ្យា'];
+  }
+
+  // Sanitize duration
+  if (data.duration && typeof data.duration === 'string') {
+    data.duration = data.duration.substring(0, 50);
+  }
+
+  // Sanitize notes
+  if (data.notes && typeof data.notes === 'string') {
+    data.notes = data.notes.substring(0, 18000);
   }
 
   // Remove undefined or null properties
@@ -174,11 +259,13 @@ export function subscribeToVideos(
 /**
  * Save / Update a single video in Firestore
  */
-export async function saveVideoToCloud(video: VideoItem): Promise<void> {
-  const docPath = `${VIDEOS_COLLECTION}/${video.id}`;
+export async function saveVideoToCloud(video: VideoItem): Promise<VideoItem> {
+  const payload = cleanVideoPayload(video) as VideoItem;
+  const docPath = `${VIDEOS_COLLECTION}/${payload.id}`;
   try {
-    const docRef = doc(db, VIDEOS_COLLECTION, video.id);
-    await setDoc(docRef, cleanVideoPayload(video), { merge: true });
+    const docRef = doc(db, VIDEOS_COLLECTION, payload.id);
+    await setDoc(docRef, payload, { merge: true });
+    return payload;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, docPath);
   }

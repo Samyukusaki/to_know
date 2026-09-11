@@ -291,10 +291,16 @@ export default function App() {
       })
       .sort((a, b) => {
         if (sortOption === 'newest') {
-          return new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime();
+          const timeA = new Date(a.publishDate).getTime() || 0;
+          const timeB = new Date(b.publishDate).getTime() || 0;
+          if (timeB !== timeA) return timeB - timeA;
+          return (b.id || '').localeCompare(a.id || '');
         }
         if (sortOption === 'oldest') {
-          return new Date(a.publishDate).getTime() - new Date(b.publishDate).getTime();
+          const timeA = new Date(a.publishDate).getTime() || 0;
+          const timeB = new Date(b.publishDate).getTime() || 0;
+          if (timeA !== timeB) return timeA - timeB;
+          return (a.id || '').localeCompare(b.id || '');
         }
         if (sortOption === 'most_views') {
           return (b.views || 0) - (a.views || 0);
@@ -320,7 +326,18 @@ export default function App() {
     }
 
     try {
-      await saveVideoToCloud(videoData);
+      const savedPayload = await saveVideoToCloud(videoData);
+      // Ensure local state synchronizes with the exact sanitized cloud payload
+      setVideos((prev) => {
+        const foundIndex = prev.findIndex((v) => v.id === videoData.id || v.id === savedPayload.id);
+        if (foundIndex >= 0) {
+          const next = [...prev];
+          next[foundIndex] = savedPayload;
+          return next;
+        }
+        return [savedPayload, ...prev];
+      });
+
       showToast(
         lang === 'km'
           ? isEdit
